@@ -19,10 +19,21 @@
 </head>
 <body>
 
+<!-- AH 品牌标记 —— 只在这里写一次，顶栏和加载页都用 <use> 复用它。
+     坐标是 App 版标识的原值（字高 360 / 笔画 34 / 轴距 180），三条互不重叠的路径。 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="ahMark" viewBox="48.5 59 404.5 394">
+    <path d="M239,59L283.5,59L273,80L273,453L239,453L239,148L86.5,453L48.5,453L239,72Z"/>
+    <path d="M419,59h34v394h-34Z"/>
+    <path d="M185.5,239H453V273H168.5Z"/>
+  </symbol>
+</svg>
+
 <!-- 顶栏 -->
 <header id="hdr">
   <div class="hdr-in">
     <div class="hdr-l">
+      <span class="brand" aria-hidden="true"><svg viewBox="48.5 59 404.5 394"><use href="#ahMark" xlink:href="#ahMark"/></svg></span>
       <h1 id="hdrTitle">训练</h1>
       <div class="hdr-sub" id="hdrSub"></div>
     </div>
@@ -37,7 +48,7 @@
 
 <!-- 主视图 -->
 <main id="view">
-  <div class="empty"><div class="ic">💪</div><div class="t">正在加载…</div></div>
+  <div class="empty"><div class="ic"><svg class="ic-ah" viewBox="48.5 59 404.5 394" aria-hidden="true"><use href="#ahMark" xlink:href="#ahMark"/></svg></div><div class="t">正在加载…</div></div>
 </main>
 
 <!-- 休息倒计时浮条 -->

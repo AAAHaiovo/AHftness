@@ -361,7 +361,7 @@ function cueChips(s) {
   if (!parts.length) return "";
   return '<div class="cue-chips">' + parts.map(function (p) {
     return '<span class="cue-chip">' + rich(p) + "</span>";
-  }).join("") + "</div>";
+  }).join('<span class="cue-dot">·</span>') + "</div>";
 }
 
 /* ---------- 训练记录 ---------- */
@@ -442,7 +442,7 @@ function svgLine(series, opt) {
 function svgRing(pct, color, size) {
   size = size || 104;
   var r = size / 2 - 8, c = 2 * Math.PI * r;
-  pct = clamp(pct, 0, 1);
+  pct = clamp(num(pct), 0, 1);   /* NaN 过 clamp 还是 NaN，会让 dasharray 变成非法值，圆环被画满 */
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
     '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="#EDEFF3" stroke-width="9"/>' +
     '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="9" stroke-linecap="round"' +
@@ -651,14 +651,16 @@ function viewTrain() {
   /* 顶部当日卡 */
   h += '<div class="pad" style="padding-bottom:12px">';
   h += '<div class="card"><div class="card-pad" style="padding:16px var(--gap)">';
-  h += '<div style="display:flex;align-items:center;gap:10px">';
-  h += '<div style="flex:1">';
+  /* 「换一天」用绝对定位浮在右上角，不占流。
+     否则它会把居中的标题往左推，居中的其实不是整张卡的中线。 */
+  h += '<div style="position:relative">';
+  h += '<div style="text-align:center">';
   h += '<div style="font-size:13px;color:var(--tx2);margin-bottom:3px">' + greet + " · " + (parseD(today).getMonth() + 1) + "月" + parseD(today).getDate() + "日</div>";
   h += '<div style="font-size:24px;font-weight:700;letter-spacing:-.6px">' + esc(day.title) + "</div>";
-  h += '<div class="mg-chips" style="margin-top:7px">' + mgChipsHTML(dayMuscles(day)) + "</div>";
+  h += '<div class="mg-chips" style="margin-top:7px;justify-content:center">' + mgChipsHTML(dayMuscles(day)) + "</div>";
   h += '<div style="font-size:13px;color:var(--tx2);margin-top:6px">' + day.ex.length + " 个动作 · " + day.ex.reduce(function (a, e) { return a + e.s; }, 0) + " 组" + (isToday ? " · 进行中" : "") + "</div>";
   h += "</div>";
-  h += '<button class="qb" data-act="pickDay" style="height:34px">换一天</button>';
+  h += '<button class="qb" data-act="pickDay" style="height:34px;position:absolute;right:0;top:50%;transform:translateY(-50%)">换一天</button>';
   h += "</div></div></div></div>";
 
   /* 热身（未开始时折叠） */
@@ -730,10 +732,9 @@ function exCard(ex, n, active) {
     /* 「全部照上次」从快捷行挪上来：快捷行要留给用户点名的 4 个，5 个挤一行会断行 */
     if (active) h += '<button class="qb gray mini" data-act="copyAll" data-ex="' + ex.id + '">全部照上次</button>';
     h += "</div>";
-  } else {
-    var g = ex.id === "e12" ? "建议先用 8kg 试探" : "第一次做，轻一点找准动作";
-    h += '<div class="ex-last"><span class="el-main el-dim">' + g + "</span></div>";
   }
+  /* 没有历史记录时这里原本有一行灰字提示（「第一次做，轻一点找准动作」），
+     已按要求删掉。没记录就干脆不显示这一行，卡片更干净。 */
 
   if (active) {
     h += '<div class="quick">';
@@ -920,9 +921,13 @@ function viewDiet() {
   var today = ds();
   var n = D.nutri[today] || { p: 0, k: 0 };
   var st = D.settings;
-  var tp = st.proteinTarget;
+  var tp = num(st.proteinTarget) || DEFAULT_SETTINGS.proteinTarget;
   var mode = dayMode(today);
   var tk = kcalTargetFor(today);
+  /* 一律过 num()：以前切训练日/休息日会存下只有 mode、没有 p/k 的对象，
+     直接取 n.p 是 undefined，算出来是 NaN（数字显示 NaN，圆环的
+     stroke-dashoffset 拿到 NaN 被判非法，退回默认值就画成一个满圈）。 */
+  var np = num(n.p), nk = num(n.k);
   var h = "";
 
   /* 训练日 / 休息日：App 先自己猜，猜错了点一下就能改 */
@@ -932,13 +937,13 @@ function viewDiet() {
 
   h += '<div class="pad" style="padding-bottom:14px"><div class="card"><div class="card-pad">';
   h += '<div class="ring-wrap">';
-  h += '<div class="ring" data-act="editP">' + svgRing(n.p / tp, "#007AFF") + '<div class="rv"><b>' + Math.round(n.p) + "</b><s>/ " + tp + " g 蛋白</s></div></div>";
-  h += '<div class="ring" data-act="editK">' + svgRing(n.k / tk, "#FF9500") + '<div class="rv"><b>' + Math.round(n.k) + "</b><s>/ " + tk + " kcal</s></div></div>";
+  h += '<div class="ring" data-act="editP">' + svgRing(np / tp, "#007AFF") + '<div class="rv"><b>' + Math.round(np) + "</b><s>/ " + tp + " g 蛋白</s></div></div>";
+  h += '<div class="ring" data-act="editK">' + svgRing(nk / tk, "#FF9500") + '<div class="rv"><b>' + Math.round(nk) + "</b><s>/ " + tk + " kcal</s></div></div>";
   h += "</div>";
   h += '<div class="diet-eq">消耗 <b>' + num(st.tdee) + "</b> − 缺口 <b>" +
     num(mode === "train" ? st.deficitTrain : st.deficitRest) + "</b>（" +
     (mode === "train" ? "训练日" : "休息日") + "）= 今天吃 <b>" + tk + " kcal</b></div>";
-  var left = tp - n.p;
+  var left = tp - np;
   h += '<div style="text-align:center;font-size:14px;color:var(--tx2);padding:6px 0 2px">' +
     (left > 0 ? "还差 <b style='color:var(--blue)'>" + Math.round(left) + " g</b> 蛋白" : "<b style='color:var(--green)'>蛋白达标了</b>，保持") + "</div>";
   h += "</div></div></div>";
@@ -961,10 +966,13 @@ function viewDiet() {
     var v = D.nutri[d];
     var m = dayMode(d), tgt = kcalTargetFor(d);
     var lb = i === 0 ? "今天" : i === 1 ? "昨天" : (parseD(d).getMonth() + 1) + "/" + parseD(d).getDate();
+    /* 判断「记没记过」看数值，不看对象在不在：只切过一次模式的日子
+       也会留下一个对象，按以前那样判断就会显示成「NaNg · NaN」。 */
+    var vp = v ? num(v.p) : 0, vk = v ? num(v.k) : 0, has = vp || vk;
     rows += '<div class="row" data-act="editP" data-d="' + d + '">' +
       '<div class="rl"><div class="rt">' + lb + "</div></div>" +
       '<span class="mode-chip ' + m + '">' + (m === "train" ? "练" : "休") + "</span>" +
-      '<div class="rv meal-num">' + (v ? Math.round(v.p) + "g · " + Math.round(v.k) : "—") +
+      '<div class="rv meal-num">' + (has ? Math.round(vp) + "g · " + Math.round(vk) : "—") +
         '<s class="rv-t">/' + tgt + "</s></div>" +
       '<span class="chev">›</span></div>';
   }
@@ -1173,7 +1181,9 @@ document.addEventListener("click", function (e) {
     case "addK": addNutri("k", +t.getAttribute("data-v")); break;
     case "nutMode":
       var dn = ds(), mm = t.getAttribute("data-v");
-      var no = D.nutri[dn] || {};
+      /* 必须带 p/k 一起建：今天还没记过东西时，光写 mode 会留下一个
+         没有 p 和 k 的对象，饮食页读 n.p 得到 undefined，一路算成 NaN。 */
+      var no = D.nutri[dn] || { p: 0, k: 0 };
       no.mode = mm; D.nutri[dn] = no;
       save("nutri"); render();
       toast(mm === "train" ? "今天按训练日算" : "今天按休息日算");
@@ -1536,8 +1546,8 @@ function weightSheet() {
 function nutriSheet(date) {
   var v = D.nutri[date] || { p: 0, k: 0 };
   var h = '<div class="card">';
-  h += '<div class="fld"><label>蛋白质（g）</label><input class="num" type="text" inputmode="decimal" id="nP" value="' + Math.round(v.p) + '"></div>';
-  h += '<div class="fld"><label>热量（kcal）</label><input class="num" type="text" inputmode="numeric" id="nK" value="' + Math.round(v.k) + '"></div>';
+  h += '<div class="fld"><label>蛋白质（g）</label><input class="num" type="text" inputmode="decimal" id="nP" value="' + Math.round(num(v.p)) + '"></div>';
+  h += '<div class="fld"><label>热量（kcal）</label><input class="num" type="text" inputmode="numeric" id="nK" value="' + Math.round(num(v.k)) + '"></div>';
   h += "</div>";
   h += '<div class="note">' + date.slice(5).replace("-", "月") + "日</div>";
   openSheet("饮食 · " + date.slice(5).replace("-", "/"), h, function () {
@@ -1551,7 +1561,10 @@ function nutriSheet(date) {
 function addNutri(f, v) {
   var t = ds();
   var o = D.nutri[t] || { p: 0, k: 0 };
-  o[f] = num(o[f]) + v;
+  /* 先把 p 和 k 补齐再累加：老数据可能只有 mode，
+     只补被点的那个字段的话，另一个仍是 undefined。 */
+  o.p = num(o.p); o.k = num(o.k);
+  o[f] = o[f] + v;
   D.nutri[t] = o; save("nutri"); render();
   toast("+" + v + (f === "p" ? "g 蛋白" : " kcal"));
 }
