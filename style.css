@@ -4,33 +4,44 @@
    ============================================================ */
 
 :root{
-  /* 颜色 */
+  /* 颜色 —— 白卡 + 系统蓝。灰阶分成三层，白卡才「浮」得起来 */
+  --bg:#F5F6F8;
+  --card:#FFFFFF;
+  --card2:#F4F5F8;
+  --card3:#EDEFF3;
+  --tx:#111114;
+  --tx2:#6E7180;
+  --tx3:#AEB2BE;
+  --line:#E9EBF0;
+  --line2:#F1F3F7;
+
   --blue:#007AFF;
   --blue-d:#0062CC;
-  --bg:#F2F2F7;
-  --card:#FFFFFF;
-  --card2:#F2F2F7;
-  --tx:#000000;
-  --tx2:#8E8E93;
-  --tx3:#C7C7CC;
-  --line:#E5E5EA;
-  --line2:#EFEFF4;
+  --blue-t:#EAF2FF;
   --green:#34C759;
-  --red:#FF3B30;
+  --green-d:#1E9E44;
+  --green-t:#E9F9EE;
   --orange:#FF9500;
+  --orange-t:#FFF4E6;
+  --red:#FF3B30;
   --purple:#AF52DE;
   --teal:#5AC8FA;
-  --fill:#7676801F;
+  --fill:#7878801F;
 
   /* 尺寸 */
-  --r:12px;
-  --r-lg:16px;
+  --r:14px;
+  --r-lg:18px;
   --gap:16px;
-  --tabh:49px;
+  --tabh:50px;
 
   --safe-t:env(safe-area-inset-top,0px);
   --safe-b:env(safe-area-inset-bottom,0px);
   --hdrh:52px;
+
+  /* 阴影 —— 很轻，只负责把白卡从灰底上抬起来 */
+  --sh-1:0 1px 2px rgba(18,24,40,.04), 0 4px 12px -6px rgba(18,24,40,.10);
+  --sh-2:0 2px 6px rgba(18,24,40,.06), 0 14px 32px -12px rgba(18,24,40,.16);
+  --sh-blue:0 3px 12px -2px rgba(0,122,255,.34);
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
@@ -40,9 +51,14 @@ html{-webkit-text-size-adjust:100%; background:var(--bg)}
 body{
   margin:0; background:var(--bg); color:var(--tx);
   font:17px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
   padding-bottom:calc(var(--tabh) + var(--safe-b) + 24px);
   overscroll-behavior-y:none;
+  transition:padding-bottom .2s;
 }
+/* 休息倒计时浮起来的时候，再让出它的高度，最后一组别被盖住 */
+body.resting{padding-bottom:calc(var(--tabh) + var(--safe-b) + 78px)}
 button,input,select,textarea{font-family:inherit; font-size:inherit; color:inherit}
 button{border:none; background:none; padding:0; cursor:pointer}
 a{color:var(--blue); text-decoration:none}
@@ -52,54 +68,55 @@ h1,h2,h3,h4,p{margin:0}
 #hdr{
   position:sticky; top:0; z-index:60;
   padding-top:var(--safe-t);
-  background:rgba(242,242,247,.82);
+  background:rgba(245,246,248,.78);
   -webkit-backdrop-filter:saturate(180%) blur(20px);
   backdrop-filter:saturate(180%) blur(20px);
   border-bottom:.5px solid transparent;
-  transition:border-color .2s;
+  transition:border-color .2s, background .2s;
 }
-#hdr.scrolled{border-bottom-color:var(--line)}
+#hdr.scrolled{border-bottom-color:var(--line); background:rgba(245,246,248,.92)}
 .hdr-in{
   height:var(--hdrh); display:flex; align-items:center; gap:10px;
   padding:0 var(--gap);
 }
 .hdr-l{flex:1; min-width:0; display:flex; align-items:baseline; gap:8px}
 #hdrTitle{
-  font-size:17px; font-weight:600; letter-spacing:-.2px;
+  font-size:17px; font-weight:650; letter-spacing:-.2px;
   transition:font-size .18s ease;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-#hdr:not(.scrolled) #hdrTitle{font-size:28px; font-weight:700; letter-spacing:-.6px}
+#hdr:not(.scrolled) #hdrTitle{font-size:30px; font-weight:700; letter-spacing:-.9px}
 .hdr-sub{
   font-size:13px; color:var(--tx2); white-space:nowrap;
   opacity:0; transition:opacity .18s;
 }
 #hdr.scrolled .hdr-sub{opacity:1}
 .hdr-btn{
-  width:36px; height:36px; border-radius:50%; flex:none;
+  width:38px; height:38px; border-radius:50%; flex:none;
   display:flex; align-items:center; justify-content:center;
   color:var(--blue); background:transparent;
+  transition:background .15s, transform .12s;
 }
-.hdr-btn:active{background:var(--fill)}
+.hdr-btn:active{background:var(--blue-t); transform:scale(.94)}
 
 /* ---------------- 主视图 ---------------- */
 #view{padding:8px 0 0}
 .pad{padding:0 var(--gap)}
-.sec{margin-bottom:26px}
+.sec{margin-bottom:24px}
 .sec-t{
-  font-size:13px; font-weight:600; color:var(--tx2);
-  text-transform:uppercase; letter-spacing:.5px;
-  padding:0 var(--gap) 7px;
+  font-size:14px; font-weight:600; color:var(--tx2);
+  padding:0 var(--gap) 8px;
 }
-.sec-t .r{float:right; text-transform:none; letter-spacing:0; color:var(--blue); font-weight:500}
+.sec-t .r{float:right; color:var(--blue); font-weight:500; font-size:13.5px}
 
 /* ---------------- 卡片 / 列表 ---------------- */
 .card{
   background:var(--card); border-radius:var(--r);
   margin:0 var(--gap); overflow:hidden;
+  box-shadow:var(--sh-1);
 }
 .card + .card{margin-top:12px}
-.card-pad{padding:14px var(--gap)}
+.card-pad{padding:15px var(--gap)}
 
 .row{
   display:flex; align-items:center; gap:12px;
@@ -123,95 +140,113 @@ h1,h2,h3,h4,p{margin:0}
   height:calc(var(--tabh) + var(--safe-b));
   padding-bottom:var(--safe-b);
   display:flex;
-  background:rgba(249,249,249,.94);
-  -webkit-backdrop-filter:saturate(180%) blur(20px);
-  backdrop-filter:saturate(180%) blur(20px);
-  border-top:.5px solid rgba(0,0,0,.12);
+  background:rgba(252,252,253,.84);
+  -webkit-backdrop-filter:saturate(180%) blur(22px);
+  backdrop-filter:saturate(180%) blur(22px);
+  border-top:.5px solid rgba(0,0,0,.07);
 }
 #tabs button{
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:2px; color:#999; font-size:10px; letter-spacing:.1px;
-  transition:color .12s;
+  gap:3px; color:#989AA4; font-size:10.5px; font-weight:500;
+  transition:color .15s, transform .12s;
 }
-#tabs button svg{width:26px; height:26px; display:block}
-#tabs button.on{color:var(--blue)}
-#tabs button.on svg{stroke:var(--blue)}
-#tabs button:active{opacity:.6}
+#tabs button svg{width:25px; height:25px; display:block; stroke-width:1.7}
+#tabs button.on{color:var(--blue); font-weight:600}
+#tabs button.on svg{stroke:var(--blue); stroke-width:1.9}
+#tabs button:active{transform:scale(.92)}
 
 /* ---------------- 动作卡（训练页） ---------------- */
 .ex{
   background:var(--card); border-radius:var(--r);
   margin:0 var(--gap) 12px; overflow:hidden;
+  box-shadow:var(--sh-1);
 }
-.ex.done{background:#F6FBF7}
+.ex.done{background:#FBFEFC}
 .ex-hd{
   display:flex; align-items:flex-start; gap:10px;
-  padding:13px var(--gap) 10px;
+  padding:14px var(--gap) 10px;
 }
 .ex-i{
-  flex:none; width:22px; height:22px; border-radius:50%;
-  background:var(--card2); color:var(--tx2);
-  font-size:12px; font-weight:700;
+  flex:none; width:24px; height:24px; border-radius:8px;
+  background:var(--card3); color:var(--tx2);
+  font-size:12.5px; font-weight:700;
   display:flex; align-items:center; justify-content:center;
   margin-top:1px;
 }
-.ex.done .ex-i{background:var(--green); color:#fff}
-.ex-nm{flex:1; min-width:0; font-size:17px; font-weight:600; letter-spacing:-.2px; line-height:1.25}
+.ex.done .ex-i{background:var(--green); color:#fff; box-shadow:0 2px 6px -1px rgba(52,199,89,.5)}
+.ex-nm{flex:1; min-width:0; font-size:17px; font-weight:650; letter-spacing:-.25px; line-height:1.3}
 .ex-nm .pr{
   display:inline-block; vertical-align:2px; margin-left:6px;
   font-size:10px; font-weight:700; letter-spacing:.3px;
-  color:#fff; background:var(--orange); padding:1px 6px; border-radius:5px;
+  color:#fff; background:var(--orange); padding:1.5px 6px; border-radius:5px;
+  box-shadow:0 1px 4px -1px rgba(255,149,0,.6);
 }
-.ex-set{flex:none; font-size:14px; font-weight:600; color:var(--blue); white-space:nowrap}
-.ex-cue{font-size:13px; color:var(--tx2); padding:0 var(--gap) 0 42px; line-height:1.45}
-.ex-cue b{color:#333; font-weight:600}
+.ex-set{
+  flex:none; font-size:13px; font-weight:600; color:var(--blue);
+  background:var(--blue-t); padding:3px 9px; border-radius:8px;
+  white-space:nowrap; font-variant-numeric:tabular-nums;
+}
+/* 左缩进 = gap(16) + 编号(24) + 间距(10) = 50，和动作名对齐 */
+.ex-cue{font-size:13px; color:var(--tx2); padding:0 var(--gap) 0 50px; line-height:1.5}
+.ex-cue b{color:#3A3A40; font-weight:600}
 .ex-last{
-  font-size:13px; color:var(--tx2); padding:7px var(--gap) 0 42px;
+  font-size:13px; color:var(--tx2); padding:8px var(--gap) 0 50px;
   display:flex; align-items:center; gap:6px; flex-wrap:wrap;
 }
-.ex-last b{color:#333; font-weight:600}
+.ex-last b{color:#3A3A40; font-weight:600}
 
 /* 组输入表 */
-.sets{width:100%; border-collapse:collapse; margin-top:10px}
+.sets{width:100%; border-collapse:separate; border-spacing:0; margin-top:12px}
 .sets th{
-  font-size:11px; font-weight:600; color:var(--tx2); text-transform:uppercase;
-  letter-spacing:.4px; padding:0 0 6px; text-align:center;
+  font-size:11.5px; font-weight:600; color:var(--tx3);
+  padding:0 0 7px; text-align:center;
 }
-.sets th:first-child{text-align:left; padding-left:var(--gap); width:52px}
-.sets td{padding:0 4px 6px; text-align:center; vertical-align:middle}
+.sets th:first-child{text-align:left; padding-left:var(--gap); width:54px}
+.sets td{padding:0 4px 7px; text-align:center; vertical-align:middle}
 .sets td:first-child{padding-left:var(--gap); text-align:left}
 .sets td:last-child{padding-right:var(--gap)}
 .sn{
-  width:26px; height:26px; border-radius:7px; background:var(--card2);
-  color:var(--tx2); font-size:12px; font-weight:700;
+  width:28px; height:28px; border-radius:9px; background:var(--card3);
+  color:var(--tx2); font-size:12.5px; font-weight:700;
   display:inline-flex; align-items:center; justify-content:center;
+  transition:background .15s, color .15s, transform .12s;
 }
-.sn.warm{background:#FFF4E5; color:#B26A00}
-.sn.on{background:var(--green); color:#fff}
+.sn:active{transform:scale(.9)}
+.sn.warm{background:var(--orange-t); color:#B26A00}
+.sn.on{background:var(--green); color:#fff; box-shadow:0 2px 7px -1px rgba(52,199,89,.55)}
+/* 输入格：浅灰「凹槽」+ 内描边。底色要够深才看得出是个输入框 */
 .cell{
-  width:100%; height:38px; border-radius:9px; text-align:center;
-  background:var(--card2); border:1.5px solid transparent;
-  font-size:16px; font-weight:600; padding:0 2px;
+  width:100%; height:40px; border-radius:10px; text-align:center;
+  background:#EFF1F5; border:none;
+  box-shadow:inset 0 0 0 1px rgba(17,17,20,.045);
+  font-size:16.5px; font-weight:600; padding:0 2px;
+  font-variant-numeric:tabular-nums;
   -webkit-appearance:none; appearance:none;
+  transition:background .15s, box-shadow .15s;
 }
-.cell:focus{outline:none; border-color:var(--blue); background:#fff}
-.cell::placeholder{color:var(--tx3); font-weight:400; font-size:14px}
-.cell.on{background:#E8F7EC; color:#1B7A34; border-color:#B7E4C4}
-.cell.rir{font-size:14px}
+.cell:focus{
+  outline:none; background:#fff;
+  box-shadow:inset 0 0 0 1.5px var(--blue), 0 0 0 3.5px rgba(0,122,255,.13);
+}
+.cell::placeholder{color:var(--tx3); font-weight:400; font-size:13px}
+.cell.on{
+  background:var(--green-t); color:var(--green-d);
+  box-shadow:inset 0 0 0 1px rgba(52,199,89,.32);
+}
+.cell.rir{font-size:14.5px}
 
-/* 快捷按钮 */
+/* 快捷按钮 —— 换行而不是横向裁切，右边别再出现半截按钮 */
 .quick{
-  display:flex; gap:7px; padding:2px var(--gap) 12px; overflow-x:auto;
-  -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  display:flex; flex-wrap:wrap; gap:8px; padding:4px var(--gap) 14px;
 }
-.quick::-webkit-scrollbar{display:none}
 .qb{
-  flex:none; height:32px; padding:0 12px; border-radius:16px;
-  background:var(--card2); color:var(--blue);
-  font-size:14px; font-weight:600; white-space:nowrap;
-  border:1px solid var(--line2);
+  flex:none; height:34px; padding:0 11px; border-radius:11px;
+  background:#EFF1F5; color:var(--blue);
+  font-size:13.5px; font-weight:600; white-space:nowrap;
+  box-shadow:inset 0 0 0 1px rgba(17,17,20,.045);
+  transition:background .15s, transform .12s;
 }
-.qb:active{background:#E4E4E9}
+.qb:active{background:var(--card3); transform:scale(.96)}
 .qb.gray{color:var(--tx2)}
 /* 快捷记录按钮：等宽铺满一行，不要 3+1 那样掉一个下来 */
 .qb-grid{display:grid; gap:8px}
@@ -232,22 +267,26 @@ h1,h2,h3,h4,p{margin:0}
 }
 .cal-nav button:active{background:var(--fill)}
 .cal-nav button:disabled{color:var(--tx3)}
-.cal{background:var(--card); border-radius:var(--r); margin:0 var(--gap); padding:10px 6px 8px}
+.cal{background:var(--card); border-radius:var(--r); margin:0 var(--gap); padding:12px 6px 8px; box-shadow:var(--sh-1)}
 .cal-wk, .cal-grid{display:grid; grid-template-columns:repeat(7,1fr)}
 .cal-wk div{
-  text-align:center; font-size:11px; font-weight:600; color:var(--tx2);
-  padding-bottom:6px;
+  text-align:center; font-size:11px; font-weight:600; color:var(--tx3);
+  padding-bottom:8px;
 }
 .cal-d{
   aspect-ratio:1; display:flex; flex-direction:column;
   align-items:center; justify-content:center; gap:3px;
-  font-size:15px; position:relative; border-radius:50%;
+  font-size:15px; position:relative; z-index:0; border-radius:50%;
+  transition:transform .12s;
 }
 .cal-d.pad{color:var(--tx3)}
 .cal-d.today{color:var(--blue); font-weight:700}
+.cal-d.sel{color:#fff; font-weight:700}
+/* z-index:0 让 .cal-d 自成层叠上下文，蓝底才能垫在数字下面而不是盖住它 */
 .cal-d.sel::before{
-  content:""; position:absolute; inset:4px; border-radius:50%;
-  border:1.5px solid var(--blue);
+  content:""; position:absolute; inset:2px; border-radius:50%;
+  background:var(--blue); box-shadow:var(--sh-blue);
+  z-index:-1;
 }
 .cal-d .dot{
   width:5px; height:5px; border-radius:50%; background:var(--green);
@@ -258,14 +297,15 @@ h1,h2,h3,h4,p{margin:0}
   position:absolute; bottom:3px; font-size:8px; font-weight:700;
   color:var(--green); letter-spacing:-.2px;
 }
+.cal-d.sel .dtag{color:rgba(255,255,255,.92)}
 
 /* 热力图 */
 .heat{padding:4px var(--gap) 8px}
 .heat-row{display:flex; align-items:center; gap:8px; margin-bottom:9px}
-.heat-lb{width:76px; flex:none; font-size:13px; color:#333; text-align:right; line-height:1.2}
-.heat-bars{flex:1; display:flex; gap:2.5px; align-items:center; min-height:22px; flex-wrap:wrap}
+.heat-lb{width:76px; flex:none; font-size:13px; color:#3A3A40; text-align:right; line-height:1.2}
+.heat-bars{flex:1; display:flex; gap:3px; align-items:center; min-height:22px; flex-wrap:wrap}
 .heat-b{
-  width:11px; height:22px; border-radius:3px; background:#E9E9EE;
+  width:11px; height:22px; border-radius:3.5px; background:var(--card3);
 }
 .heat-b.h1{background:#BBD9FF}
 .heat-b.h2{background:#7FB6FF}
@@ -274,20 +314,22 @@ h1,h2,h3,h4,p{margin:0}
 .heat-n b{color:var(--blue); font-weight:600}
 
 /* ---------------- 图表 ---------------- */
-.chart{margin:0 var(--gap); background:var(--card); border-radius:var(--r); padding:14px 8px 8px}
+.chart{margin:0 var(--gap); background:var(--card); border-radius:var(--r); padding:15px 8px 8px; box-shadow:var(--sh-1)}
 .chart svg{display:block; width:100%; height:auto; overflow:visible}
 .chart-t{font-size:15px; font-weight:600; padding:0 8px 10px}
-.chart-t .v{color:var(--blue); font-weight:700}
+.chart-t .v{color:var(--blue); font-weight:700; font-variant-numeric:tabular-nums}
 .lg{display:flex; gap:14px; padding:2px 8px 8px; font-size:12px; color:var(--tx2)}
 .lg i{display:inline-block; width:14px; height:3px; border-radius:2px; margin-right:5px; vertical-align:3px}
 
 .stats{display:flex; margin:0 var(--gap); gap:10px}
 .stat{
-  flex:1; background:var(--card); border-radius:var(--r); padding:12px 10px; text-align:center;
+  flex:1; background:var(--card); border-radius:var(--r); padding:13px 10px 12px;
+  text-align:center; box-shadow:var(--sh-1);
 }
-.stat .v{font-size:22px; font-weight:700; letter-spacing:-.5px; color:var(--blue)}
-.stat .v small{font-size:12px; font-weight:600; color:var(--tx2); margin-left:2px}
-.stat .l{font-size:11px; color:var(--tx2); margin-top:2px}
+/* 数字用近黑，强调色留给真正需要突出的时候 */
+.stat .v{font-size:23px; font-weight:700; letter-spacing:-.7px; color:var(--tx); font-variant-numeric:tabular-nums}
+.stat .v small{font-size:12px; font-weight:600; color:var(--tx2); margin-left:2px; letter-spacing:0}
+.stat .l{font-size:11.5px; color:var(--tx2); margin-top:3px}
 
 /* ---------------- 饮食 ---------------- */
 .ring-wrap{display:flex; align-items:center; justify-content:center; gap:26px; padding:18px 0 6px}
@@ -318,7 +360,11 @@ h1,h2,h3,h4,p{margin:0}
   display:flex; align-items:center; justify-content:center;
   -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
 }
-.ph.add{ border:1.5px dashed var(--tx3); color:var(--blue); font-size:26px; font-weight:300; background:transparent}
+.ph.add{
+  border:none; background:var(--blue-t); color:var(--blue);
+  font-size:28px; font-weight:400;
+  box-shadow:inset 0 0 0 1.5px rgba(0,122,255,.22);
+}
 .ph-month{display:flex; align-items:baseline; gap:8px; padding:16px var(--gap) 8px}
 .ph-month b{font-size:15px; font-weight:700}
 .ph-month s{text-decoration:none; font-size:12px; color:var(--tx2)}
@@ -330,14 +376,14 @@ h1,h2,h3,h4,p{margin:0}
 
 /* ---------------- 分段控件 ---------------- */
 .seg{
-  display:flex; background:var(--fill); border-radius:9px; padding:2px;
-  margin:0 var(--gap) 14px;
+  display:flex; background:var(--card3); border-radius:11px; padding:3px;
+  margin:0 var(--gap) 16px;
 }
 .seg button{
-  flex:1; height:32px; border-radius:7px; font-size:13px; font-weight:600;
-  color:var(--tx); transition:background .15s;
+  flex:1; height:34px; border-radius:9px; font-size:13.5px; font-weight:600;
+  color:var(--tx2); transition:background .18s, color .18s, box-shadow .18s;
 }
-.seg button.on{background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg button.on{background:#fff; color:var(--tx); box-shadow:var(--sh-1)}
 
 /* ---------------- 底部弹层 ---------------- */
 .sheet-wrap{position:fixed; inset:0; z-index:200}
@@ -349,15 +395,18 @@ h1,h2,h3,h4,p{margin:0}
 .sheet{
   position:absolute; left:0; right:0; bottom:0;
   max-height:92vh; background:var(--bg);
-  border-radius:14px 14px 0 0;
+  border-radius:22px 22px 0 0;
   display:flex; flex-direction:column;
-  transform:translateY(101%); transition:transform .3s cubic-bezier(.32,.72,0,1);
+  transform:translateY(101%);
+  transition:transform .34s cubic-bezier(.32,.72,0,1);
   padding-bottom:var(--safe-b);
+  box-shadow:0 -8px 40px rgba(18,24,40,.18);
 }
 .sheet-wrap.on .sheet{transform:translateY(0)}
 .sheet-grip{
-  width:36px; height:5px; border-radius:3px; background:var(--tx3);
-  margin:8px auto 0; flex:none;
+  width:38px; height:5px; border-radius:3px;
+  background:rgba(17,17,20,.16);
+  margin:9px auto 0; flex:none;
 }
 .sheet-hd{
   display:flex; align-items:center; gap:8px; padding:8px var(--gap) 10px; flex:none;
@@ -380,20 +429,23 @@ h1,h2,h3,h4,p{margin:0}
 
 /* ---------------- 按钮 ---------------- */
 .btn{
-  display:block; width:100%; height:50px; border-radius:12px;
-  background:var(--blue); color:#fff; font-size:17px; font-weight:600;
+  display:block; width:100%; height:50px; border-radius:var(--r);
+  background:linear-gradient(180deg,#2E90FF,#007AFF); color:#fff;
+  font-size:17px; font-weight:600; letter-spacing:-.2px;
   text-align:center; line-height:50px;
+  box-shadow:var(--sh-blue);
+  transition:transform .12s, box-shadow .15s, filter .15s;
 }
-.btn:active{background:var(--blue-d)}
-.btn.sec{background:var(--card); color:var(--blue)}
-.btn.gray{background:var(--card); color:var(--tx)}
-.btn.danger{background:var(--card); color:var(--red)}
-.btn.sm{height:40px; line-height:40px; font-size:15px; border-radius:10px}
+.btn:active{transform:scale(.985); filter:brightness(.95); box-shadow:0 1px 5px -1px rgba(0,122,255,.4)}
+.btn.sec{background:var(--card); color:var(--blue); box-shadow:var(--sh-1)}
+.btn.gray{background:var(--card); color:var(--tx); box-shadow:var(--sh-1)}
+.btn.danger{background:var(--card); color:var(--red); box-shadow:var(--sh-1)}
+.btn.sm{height:42px; line-height:42px; font-size:15px; border-radius:12px}
 
 /* iOS 开关 */
 .sw{
-  flex:none; width:51px; height:31px; border-radius:16px; background:#E9E9EA;
-  position:relative; transition:background .2s;
+  flex:none; width:51px; height:31px; border-radius:16px; background:var(--card3);
+  position:relative; transition:background .22s;
 }
 .sw::after{
   content:""; position:absolute; top:2px; left:2px; width:27px; height:27px;
@@ -404,10 +456,17 @@ h1,h2,h3,h4,p{margin:0}
 .sw.on::after{transform:translateX(20px)}
 
 /* ---------------- 空状态 ---------------- */
-.empty{text-align:center; padding:52px 32px; color:var(--tx2)}
-.empty .ic{font-size:44px; opacity:.35; margin-bottom:10px}
-.empty .t{font-size:16px; font-weight:600; color:#333; margin-bottom:5px}
-.empty .d{font-size:14px; line-height:1.55}
+.empty{text-align:center; padding:46px 32px; color:var(--tx2)}
+/* 图标给个圆角「软底」，比一个大号淡 emoji 有质感 */
+.empty .ic{
+  width:68px; height:68px; border-radius:22px; margin:0 auto 14px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:31px; line-height:1;
+  background:linear-gradient(180deg,#F1F2F6,#E7E9EF);
+  box-shadow:inset 0 0 0 1px rgba(17,17,20,.045);
+}
+.empty .t{font-size:16px; font-weight:650; color:var(--tx); margin-bottom:6px; letter-spacing:-.2px}
+.empty .d{font-size:13.5px; line-height:1.6}
 
 /* ---------------- 休息倒计时条 ---------------- */
 .rest-bar{
@@ -471,7 +530,7 @@ h1,h2,h3,h4,p{margin:0}
 .foot{font-size:12.5px; color:var(--tx3); text-align:center; padding:26px var(--gap) 8px; line-height:1.6}
 .badge{
   display:inline-block; font-size:11px; font-weight:700; letter-spacing:.3px;
-  padding:1px 7px; border-radius:6px; background:#E8F0FE; color:var(--blue);
+  padding:1.5px 7px; border-radius:6px; background:var(--blue-t); color:var(--blue);
 }
-.badge.g{background:#E8F7EC; color:#1B7A34}
-.badge.o{background:#FFF4E5; color:#B26A00}
+.badge.g{background:var(--green-t); color:var(--green-d)}
+.badge.o{background:var(--orange-t); color:#B26A00}

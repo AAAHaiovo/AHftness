@@ -339,8 +339,8 @@ function svgLine(series, opt) {
   var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">';
   for (var i = 0; i <= 3; i++) {
     var yy = PT + i * ih / 3, val = y1 - i * (y1 - y0) / 3;
-    s += '<line x1="' + PL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - PR) + '" y2="' + yy.toFixed(1) + '" stroke="#E5E5EA" stroke-width="1"/>';
-    s += '<text x="' + (PL - 6) + '" y="' + (yy + 3.5).toFixed(1) + '" font-size="9.5" fill="#8E8E93" text-anchor="end">' + fmt(val, val > 100 ? 0 : 1) + '</text>';
+    s += '<line x1="' + PL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - PR) + '" y2="' + yy.toFixed(1) + '" stroke="#E9EBF0" stroke-width="1"/>';
+    s += '<text x="' + (PL - 6) + '" y="' + (yy + 3.5).toFixed(1) + '" font-size="9.5" fill="#AEB2BE" text-anchor="end">' + fmt(val, val > 100 ? 0 : 1) + '</text>';
   }
   series.forEach(function (ser) {
     if (!ser.vals.length) return;
@@ -366,7 +366,7 @@ function svgLine(series, opt) {
     var lb = (d.getMonth() + 1) + "/" + d.getDate();
     var anc = i === 0 ? "start" : (i === 2 ? "end" : "middle");
     var xx = clamp(X(t), PL, W - PR);
-    s += '<text x="' + xx.toFixed(1) + '" y="' + (H - 7) + '" font-size="9.5" fill="#8E8E93" text-anchor="' + anc + '">' + lb + '</text>';
+    s += '<text x="' + xx.toFixed(1) + '" y="' + (H - 7) + '" font-size="9.5" fill="#AEB2BE" text-anchor="' + anc + '">' + lb + '</text>';
   });
   function tStr(n) {
     /* x 轴存的是「第几天」的序号，这里换算回日期 */
@@ -381,7 +381,7 @@ function svgRing(pct, color, size) {
   var r = size / 2 - 8, c = 2 * Math.PI * r;
   pct = clamp(pct, 0, 1);
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="#E5E5EA" stroke-width="9"/>' +
+    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="#EDEFF3" stroke-width="9"/>' +
     '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="9" stroke-linecap="round"' +
     ' stroke-dasharray="' + (c * pct).toFixed(1) + ' ' + c.toFixed(1) + '"/></svg>';
 }
@@ -392,10 +392,16 @@ function svgRing(pct, color, size) {
 var Rest = (function () {
   var endAt = 0, total = 0, tick = null, wakeLock = null;
   function el() { return $("#restBar"); }
+  /* 计时条是 fixed 的，会盖住页面最后几十像素。body 上挂个类把底部留白撑开，
+     否则最后一组的输入框永远被压在半透明黑条下面。 */
+  function show(on) {
+    el().hidden = !on;
+    document.body.classList.toggle("resting", on);
+  }
   function start(sec, label) {
     total = sec; endAt = Date.now() + sec * 1000;
     $("#restLabel").textContent = label || "组间休息";
-    el().hidden = false; paint();
+    show(true); paint();
     if (tick) clearInterval(tick);
     tick = setInterval(paint, 200);
     keepAwake(true);
@@ -416,7 +422,7 @@ var Rest = (function () {
   }
   function stop() {
     if (tick) { clearInterval(tick); tick = null; }
-    el().hidden = true;
+    show(false);
     keepAwake(false);
   }
   function add(sec) { endAt += sec * 1000; total += sec; paint(); }
@@ -517,7 +523,7 @@ var TABS = [
   { id: "cal", t: "日历", ic: '<rect x="3" y="5" width="18" height="16" rx="3.5"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
   { id: "diet", t: "饮食", ic: '<path d="M6 3v7a2.5 2.5 0 0 0 5 0V3M8.5 10v11M17.5 3c-1.4 1.5-2 3.4-2 5.5s.7 3 2 3.5v9"/>' },
   { id: "body", t: "身体", ic: '<circle cx="12" cy="6" r="3.2"/><path d="M5.5 21v-3.5a6.5 6.5 0 0 1 13 0V21"/>' },
-  { id: "plan", t: "计划", ic: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>' }
+  { id: "plan", t: "计划", ic: '<rect x="4.8" y="4.6" width="14.4" height="16.2" rx="3.4"/><path d="M9.2 4.6V3.4h5.6v1.2"/><path d="M8.8 11.2h6.4M8.8 15.2h4.2"/>' }
 ];
 
 function buildTabs() {
@@ -914,10 +920,10 @@ function weightHTML() {
 
     h += '<div class="chart"><div class="chart-t">体重趋势 <span class="v">' + (cur == null ? "" : fmt(cur, 1) + " kg") + "</span></div>";
     h += svgLine([
-      { name: "daily", vals: sRaw, color: "#C7C7CC", w: 1.4, dot: false, fill: true },
+      { name: "daily", vals: sRaw, color: "#C9CCD4", w: 1.4, dot: false, fill: true },
       { name: "ma", vals: sMA2, color: "#007AFF", w: 2.4 }
     ], { h: 178, baseTime: base });
-    h += '<div class="lg"><span><i style="background:#007AFF"></i>7日均线</span><span><i style="background:#C7C7CC"></i>每日</span></div>';
+    h += '<div class="lg"><span><i style="background:#007AFF"></i>7日均线</span><span><i style="background:#C9CCD4"></i>每日</span></div>';
     h += "</div>";
     h += '<div class="note">看均线，别看单日。体重一天上下浮动 1kg 很正常。</div>';
   } else {
@@ -1216,7 +1222,7 @@ function exInfoSheet(eid) {
   h += '<div class="card"><div class="card-pad">';
   h += '<div style="font-size:22px;font-weight:700;letter-spacing:-.5px">' + esc(ex.n) + "</div>";
   h += '<div style="font-size:14px;color:var(--tx2);margin-top:4px">' + esc(ex.mg) + " · " + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + " 秒</div>";
-  if (ex.c) h += '<div style="font-size:15px;color:#333;margin-top:12px;line-height:1.5">' + rich(ex.c) + "</div>";
+  if (ex.c) h += '<div style="font-size:15px;color:#3A3A40;margin-top:12px;line-height:1.5">' + rich(ex.c) + "</div>";
   if (ex.b) h += '<div style="font-size:13px;color:var(--tx2);margin-top:8px">呼吸：' + esc(ex.b) + "</div>";
   h += "</div></div>";
 
