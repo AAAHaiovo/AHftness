@@ -102,6 +102,9 @@ var Store = (function () {
 function EX(id, n, mg, s, r, c, b, rest) { return { id: id, n: n, mg: mg, s: s, r: r, c: c, b: b || "", rest: rest || 90 }; }
 
 var DEFAULT_PLAN = {
+  /* 计划换代号。手机上已经存了旧计划时，靠它决定要不要用新版覆盖。
+     只改结构不改这个号，老用户永远看不到新计划。 */
+  ver: 2,
   warmup: [
     "泡沫轴滚胸椎|10 次",
     "门框胸大肌 / 胸小肌拉伸|每侧 30 秒 × 2",
@@ -138,19 +141,26 @@ var DEFAULT_PLAN = {
       ]
     },
     {
-      id: "d3", tab: "DAY 3", title: "肩 + 腿 + 核心", short: "肩",
-      hint: "约 100 分钟。时间不够：肩部 4 个全保留，腿部 4 个挑 2 个做，但臀部动作每次都要有",
+      id: "d3", tab: "DAY 3A", title: "肩 + 腹部", short: "肩",
+      hint: "和「DAY 3B · 腿 + 臀」轮流练：这套练完，下次自动轮到腿。",
       ex: [
         EX("e12", "哑铃侧平举", "肩", 4, "12–15", "倒水式 · <b>不过肩高</b> · 沉肩 · 用肘尖够天花板", "常规呼吸", 60),
         EX("e13", "面拉", "肩", 4, "15–20", "绳索<b>额头高</b> · 拉到底<b>外旋</b> · 停 1 秒", "常规呼吸", 60),
         EX("e14", "反向蝴蝶机", "肩", 3, "12–15", "胸贴垫 · <b>别耸肩</b> · 停 1 秒", "常规呼吸", 60),
         EX("e15", "实力推", "肩", 3, "6–8", "前臂垂直 · <b>核心收紧不许后仰</b>", "瓦氏呼吸", 150),
+        EX("e22", "绳索卷腹", "核心", 3, "12–15", "含胸弓背 · <b>用腹肌把肘拉向膝盖</b> · 不是手臂在拉", "呼气发力，回来吸气", 60),
+        EX("e20", "悬挂举腿", "核心", 3, "10", "<b>骨盆后倾</b>，不是单纯抬腿", "常规呼吸", 60),
+        EX("e21", "农夫行走", "核心", 3, "40m", "沉肩 · 不摇晃 · 别憋气", "自然呼吸", 90)
+      ]
+    },
+    {
+      id: "d4", tab: "DAY 3B", title: "腿 + 臀", short: "腿",
+      hint: "和「DAY 3A · 肩 + 腹部」轮流练。深蹲别放第一个，前面先热身腿。",
+      ex: [
         EX("e16", "杠铃臀推", "臀", 3, "12", "顶点<b>夹臀 2 秒</b> · 别顶过头", "常规呼吸", 90),
         EX("e17", "保加利亚分腿蹲", "腿", 3, "10/侧", "<b>左腿先做</b> · 躯干略前倾（偏臀）", "常规呼吸", 90),
         EX("e18", "罗马尼亚硬拉", "腿", 3, "10", "<b>双正握 + 助力带</b> · 膝角不变 · 髋往后推", "瓦氏呼吸", 150),
-        EX("e19", "全幅度深蹲", "腿", 3, "8", "<b>高杠</b> · 大腿低于水平", "瓦氏呼吸", 180),
-        EX("e20", "悬挂举腿", "核心", 3, "10", "<b>骨盆后倾</b>，不是单纯抬腿", "常规呼吸", 60),
-        EX("e21", "农夫行走", "核心", 3, "40m", "沉肩 · 不摇晃 · 别憋气", "自然呼吸", 90)
+        EX("e19", "全幅度深蹲", "腿", 3, "8", "<b>高杠</b> · 大腿低于水平", "瓦氏呼吸", 180)
       ]
     }
   ]
@@ -160,10 +170,13 @@ var MUSCLES = ["胸", "背", "肩", "三头", "二头", "腿", "臀", "核心"];
 
 var DEFAULT_SETTINGS = {
   proteinTarget: 140,   // g
-  kcalTarget: 2800,     // kcal
+  tdee: 3000,           // 每日总消耗 kcal（基础代谢 + 日常活动 + 训练）
+  deficitTrain: 200,    // 训练日热量缺口
+  deficitRest: 500,     // 休息日热量缺口
   weightTarget: 78,     // kg
   defaultRest: 90       // 秒
 };
+/* 摄入目标不再固定填，改成按当天消耗倒推：消耗 − 缺口 */
 
 /* ============================================================
    3. 状态
@@ -184,6 +197,7 @@ var U = {                       // 界面状态（不持久化）
   calMonth: null,               // Date，当月第一天
   selDate: ds(),
   focus: null,                  // {eid, si}
+  delArm: null,                 // 待确认删除的动作 id（第一次点 ✕ 只是上膛）
   urls: []                      // 照片 objectURL 缓存
 };
 
@@ -195,7 +209,15 @@ function loadAll() {
     Store.get("plan"), Store.get("logs"), Store.get("weight"),
     Store.get("nutri"), Store.get("settings"), Store.get("photoMeta")
   ]).then(function (r) {
-    D.plan = r[0] || JSON.parse(JSON.stringify(DEFAULT_PLAN));
+    /* 老计划没有 ver（当 1 看），比新版旧就整体换成新版。
+       训练记录按动作 id 存，跟计划结构无关，所以换计划不会丢历史。 */
+    var storedPlan = r[0];
+    if (!storedPlan || (storedPlan.ver || 1) < DEFAULT_PLAN.ver) {
+      D.plan = JSON.parse(JSON.stringify(DEFAULT_PLAN));
+      if (storedPlan) save("plan");
+    } else {
+      D.plan = storedPlan;
+    }
     D.logs = r[1] || {};
     D.weight = r[2] || {};
     D.nutri = r[3] || {};
@@ -299,6 +321,47 @@ function weightMA() {
     out.push({ x: ks[i], y: sum / c });
   }
   return out;
+}
+
+/* ---------- 部位配色 / 当天热量 ---------- */
+/* 部位名 → CSS 类名后缀。中文直接当类名能用，但映射一次更保险。 */
+var MG_KEY = { "胸": "chest", "背": "back", "肩": "shoulder", "三头": "tri", "二头": "bi", "腿": "leg", "臀": "glute", "核心": "core" };
+function mgKey(mg) { return MG_KEY[mg] || "other"; }
+/* 某个部位在这天练几组 */
+function dayMuscles(day) {
+  var out = [], map = {};
+  day.ex.forEach(function (e) {
+    if (!map[e.mg]) { map[e.mg] = { mg: e.mg, n: 0, sets: 0 }; out.push(map[e.mg]); }
+    map[e.mg].n++; map[e.mg].sets += e.s;
+  });
+  return out;
+}
+function mgChipsHTML(list) {
+  return list.map(function (m) {
+    return '<span class="mg-chip ' + mgKey(m.mg) + '">' + esc(m.mg) + "<s>" + m.n + "</s></span>";
+  }).join("");
+}
+
+/* 今天算训练日还是休息日：有训练记录就算训练日；用户手动切过就听用户的 */
+function dayMode(date) {
+  var n = D.nutri[date];
+  if (n && (n.mode === "train" || n.mode === "rest")) return n.mode;
+  return D.logs[date] ? "train" : "rest";
+}
+/* 当天摄入目标 = 每日总消耗 − 当天缺口 */
+function kcalTargetFor(date) {
+  var s = D.settings;
+  var t = num(s.tdee) - (dayMode(date) === "train" ? num(s.deficitTrain) : num(s.deficitRest));
+  return Math.round(Math.max(800, t));   /* 缺口填得比消耗还大时兜一下，别出现负数 */
+}
+
+/* 动作要点按「·」拆成小药丸，居中整齐分布，不再是一长条左对齐的灰字 */
+function cueChips(s) {
+  var parts = String(s == null ? "" : s).split("·").map(function (p) { return p.trim(); }).filter(Boolean);
+  if (!parts.length) return "";
+  return '<div class="cue-chips">' + parts.map(function (p) {
+    return '<span class="cue-chip">' + rich(p) + "</span>";
+  }).join("") + "</div>";
 }
 
 /* ---------- 训练记录 ---------- */
@@ -489,10 +552,15 @@ function toast(msg, cls) {
    7. 弹层
    ============================================================ */
 var sheetOnDone = null;
+/* 弹层内部原地重绘用的。加/删/排序动作后要刷新列表，但不想把弹层关掉重开。 */
+var sheetRefresh = null;
+function refreshSheet() { if (sheetRefresh) $("#sheetBody").innerHTML = sheetRefresh(); }
+
 function openSheet(title, bodyHTML, onDone, doneLabel) {
   $("#sheetTitle").textContent = title || "";
   var sb = $("#sheetBody");
   sb.onclick = null;          /* 清掉上一个弹层挂的处理函数，避免串台 */
+  sheetRefresh = null;        /* 同理，别让上一个弹层的重绘函数跟过来 */
   sb.scrollTop = 0;
   sb.innerHTML = bodyHTML;
   $("#sheetDone").textContent = doneLabel || "完成";
@@ -587,7 +655,8 @@ function viewTrain() {
   h += '<div style="flex:1">';
   h += '<div style="font-size:13px;color:var(--tx2);margin-bottom:3px">' + greet + " · " + (parseD(today).getMonth() + 1) + "月" + parseD(today).getDate() + "日</div>";
   h += '<div style="font-size:24px;font-weight:700;letter-spacing:-.6px">' + esc(day.title) + "</div>";
-  h += '<div style="font-size:14px;color:var(--tx2);margin-top:3px">' + day.ex.length + " 个动作 · " + day.ex.reduce(function (a, e) { return a + e.s; }, 0) + " 组" + (isToday ? " · 进行中" : "") + "</div>";
+  h += '<div class="mg-chips" style="margin-top:7px">' + mgChipsHTML(dayMuscles(day)) + "</div>";
+  h += '<div style="font-size:13px;color:var(--tx2);margin-top:6px">' + day.ex.length + " 个动作 · " + day.ex.reduce(function (a, e) { return a + e.s; }, 0) + " 组" + (isToday ? " · 进行中" : "") + "</div>";
   h += "</div>";
   h += '<button class="qb" data-act="pickDay" style="height:34px">换一天</button>';
   h += "</div></div></div></div>";
@@ -643,26 +712,31 @@ function exCard(ex, n, active) {
   var h = '<div class="ex' + (allDone ? " done" : "") + '" data-ex="' + ex.id + '">';
   h += '<div class="ex-hd" data-act="exInfo" data-ex="' + ex.id + '">';
   h += '<span class="ex-i" data-n="' + n + '">' + (allDone ? "✓" : n) + "</span>";
-  h += '<span class="ex-nm">' + esc(ex.n) + '<span class="badge" style="margin-left:6px;vertical-align:3px">' + esc(ex.mg) + "</span></span>";
+  h += '<span class="ex-nm">' + esc(ex.n) + '<span class="badge ' + mgKey(ex.mg) + '" style="margin-left:6px;vertical-align:3px">' + esc(ex.mg) + "</span></span>";
   h += '<span class="ex-set">' + ex.s + "×" + esc(ex.r) + "</span>";
   h += "</div>";
-  if (ex.c) h += '<div class="ex-cue">' + rich(ex.c) + "</div>";
+  if (ex.c) h += cueChips(ex.c);
 
   if (last) {
-    var t = last.sets.filter(function (s) { return s.w || s.r; }).slice(0, 4).map(function (s) {
-      return (s.w ? s.w + "kg" : "—") + "×" + (s.r || "—");
-    }).join("　");
-    h += '<div class="ex-last">上次 <b>' + esc(t) + "</b>" +
-      (last.sets[0] && last.sets[0].rir !== "" && last.sets[0].rir != null ? '　RIR ' + esc(last.sets[0].rir) : "") +
-      '<span style="color:var(--tx3)">· ' + last.date.slice(5).replace("-", "/") + "</span></div>";
+    /* 只列 3 组、不带 kg —— 列头已经写了「重量 kg」。也不写日期：
+       这行左边是「上次」，右边是「全部照上次」，中间只剩 200px 出头。
+       日期要再占 40px，三位数重量（100×10）就一定会被省略号切掉。
+       想看哪次练的，点动作名进详情，那里有带日期的完整历史。
+       所以字号压到 12px，分隔符用「 · 」——全角空格一个就 13px，三个吃掉 39px。 */
+    var t = last.sets.filter(function (s) { return s.w || s.r; }).slice(0, 3).map(function (s) {
+      return (s.w || "—") + "×" + (s.r || "—");
+    }).join(" · ");
+    h += '<div class="ex-last"><span class="el-main">上次 <b>' + esc(t) + "</b></span>";
+    /* 「全部照上次」从快捷行挪上来：快捷行要留给用户点名的 4 个，5 个挤一行会断行 */
+    if (active) h += '<button class="qb gray mini" data-act="copyAll" data-ex="' + ex.id + '">全部照上次</button>';
+    h += "</div>";
   } else {
     var g = ex.id === "e12" ? "建议先用 8kg 试探" : "第一次做，轻一点找准动作";
-    h += '<div class="ex-last" style="color:var(--tx3)">' + g + "</div>";
+    h += '<div class="ex-last"><span class="el-main el-dim">' + g + "</span></div>";
   }
 
   if (active) {
     h += '<div class="quick">';
-    if (last) h += '<button class="qb" data-act="copyAll" data-ex="' + ex.id + '">全部照上次</button>';
     h += '<button class="qb" data-act="bump" data-ex="' + ex.id + '" data-v="2.5">+2.5kg</button>';
     h += '<button class="qb" data-act="bump" data-ex="' + ex.id + '" data-v="-2.5">−2.5kg</button>';
     h += '<button class="qb gray" data-act="copyPrev" data-ex="' + ex.id + '">复制上一组</button>';
@@ -845,15 +919,27 @@ function calStatsHTML() {
 function viewDiet() {
   var today = ds();
   var n = D.nutri[today] || { p: 0, k: 0 };
-  var tp = D.settings.proteinTarget, tk = D.settings.kcalTarget;
+  var st = D.settings;
+  var tp = st.proteinTarget;
+  var mode = dayMode(today);
+  var tk = kcalTargetFor(today);
   var h = "";
+
+  /* 训练日 / 休息日：App 先自己猜，猜错了点一下就能改 */
+  h += '<div class="seg">' +
+    '<button data-act="nutMode" data-v="train" class="' + (mode === "train" ? "on" : "") + '">训练日 −' + num(st.deficitTrain) + "</button>" +
+    '<button data-act="nutMode" data-v="rest" class="' + (mode === "rest" ? "on" : "") + '">休息日 −' + num(st.deficitRest) + "</button></div>";
+
   h += '<div class="pad" style="padding-bottom:14px"><div class="card"><div class="card-pad">';
   h += '<div class="ring-wrap">';
   h += '<div class="ring" data-act="editP">' + svgRing(n.p / tp, "#007AFF") + '<div class="rv"><b>' + Math.round(n.p) + "</b><s>/ " + tp + " g 蛋白</s></div></div>";
   h += '<div class="ring" data-act="editK">' + svgRing(n.k / tk, "#FF9500") + '<div class="rv"><b>' + Math.round(n.k) + "</b><s>/ " + tk + " kcal</s></div></div>";
   h += "</div>";
+  h += '<div class="diet-eq">消耗 <b>' + num(st.tdee) + "</b> − 缺口 <b>" +
+    num(mode === "train" ? st.deficitTrain : st.deficitRest) + "</b>（" +
+    (mode === "train" ? "训练日" : "休息日") + "）= 今天吃 <b>" + tk + " kcal</b></div>";
   var left = tp - n.p;
-  h += '<div style="text-align:center;font-size:14px;color:var(--tx2);padding:4px 0 2px">' +
+  h += '<div style="text-align:center;font-size:14px;color:var(--tx2);padding:6px 0 2px">' +
     (left > 0 ? "还差 <b style='color:var(--blue)'>" + Math.round(left) + " g</b> 蛋白" : "<b style='color:var(--green)'>蛋白达标了</b>，保持") + "</div>";
   h += "</div></div></div>";
 
@@ -873,14 +959,18 @@ function viewDiet() {
   for (var i = 0; i < 7; i++) {
     var d = addD(today, -i);
     var v = D.nutri[d];
+    var m = dayMode(d), tgt = kcalTargetFor(d);
     var lb = i === 0 ? "今天" : i === 1 ? "昨天" : (parseD(d).getMonth() + 1) + "/" + parseD(d).getDate();
-    rows += '<div class="row" data-act="editP" data-d="' + d + '"><div class="rl"><div class="rt">' + lb + "</div></div>" +
-      '<div class="rv">' + (v ? Math.round(v.p) + "g · " + Math.round(v.k) + "kcal" : "—") + "</div>" +
+    rows += '<div class="row" data-act="editP" data-d="' + d + '">' +
+      '<div class="rl"><div class="rt">' + lb + "</div></div>" +
+      '<span class="mode-chip ' + m + '">' + (m === "train" ? "练" : "休") + "</span>" +
+      '<div class="rv meal-num">' + (v ? Math.round(v.p) + "g · " + Math.round(v.k) : "—") +
+        '<s class="rv-t">/' + tgt + "</s></div>" +
       '<span class="chev">›</span></div>';
   }
   h += '<div class="sec"><div class="sec-t">最近 7 天</div><div class="card">' + rows + "</div></div>";
 
-  h += '<div class="foot">蛋白目标 ' + tp + "g 是按你 70kg 体重的 1.6–2.2 g/kg 区间取的中间值。<br>可以在设置里改。</div>";
+  h += '<div class="foot">蛋白目标 ' + tp + "g 是按你 70kg 体重的 1.6–2.2 g/kg 区间取的中间值。<br>热量目标 = 每日总消耗 − 当天缺口，都在「设置」里改。</div>";
   return h;
 }
 
@@ -995,18 +1085,29 @@ function fillPhotos() {
 /* ---------------- 计划 ---------------- */
 function viewPlan() {
   var h = "";
-  h += '<div class="note" style="padding-bottom:14px">点任意一天可以改动作、组数、次数和休息时间。改完训练页立刻跟着变。</div>';
+  h += '<div class="note" style="padding-bottom:14px">点某一天可以加动作、改组数次数、调顺序、删除。<br>点动作名字看要点和历史记录。</div>';
   D.plan.days.forEach(function (d) {
     var totalSets = d.ex.reduce(function (a, e) { return a + e.s; }, 0);
     h += '<div class="sec"><div class="sec-t">' + esc(d.tab) + "</div>";
-    h += '<div class="card"><div class="row" data-act="openDay" data-day="' + d.id + '">';
-    h += '<div class="rl"><div class="rt">' + esc(d.title) + '</div><div class="rs">' + d.ex.length + " 个动作 · " + totalSets + " 组</div></div>";
+    h += '<div class="card">';
+    /* 天标题：部位标签一眼可见，点进去就能编辑 */
+    h += '<div class="row day-hd" data-act="openDay" data-day="' + d.id + '">';
+    h += '<div class="rl"><div class="rt">' + esc(d.title) + "</div>";
+    h += '<div class="mg-chips" style="margin-top:6px">' + mgChipsHTML(dayMuscles(d)) + "</div></div>";
+    h += '<span class="rh">' + d.ex.length + " 个动作 · " + totalSets + " 组</span>";
     h += '<span class="chev">›</span></div>';
-    h += d.ex.map(function (ex) {
-      return '<div class="row" data-act="exInfo" data-ex="' + ex.id + '"><div class="rl"><div class="rt" style="font-size:16px">' + esc(ex.n) +
-        '</div><div class="rs">' + esc(ex.mg) + " · " + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + "s</div></div>" +
+    /* 动作按部位分段，部位名单独一行 —— 之前和动作名挤在一条灰字里，看不出来 */
+    var prevMg = null;
+    d.ex.forEach(function (ex) {
+      if (ex.mg !== prevMg) {
+        h += '<div class="mg-sep ' + mgKey(ex.mg) + '">' + esc(ex.mg) + "</div>";
+        prevMg = ex.mg;
+      }
+      h += '<div class="row" data-act="exInfo" data-ex="' + ex.id + '">' +
+        '<div class="rl"><div class="rt" style="font-size:16px">' + esc(ex.n) + "</div>" +
+        '<div class="rs">' + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + "s</div></div>" +
         '<span class="chev">›</span></div>';
-    }).join("");
+    });
     h += "</div></div>";
   });
   h += '<div class="sec"><div class="sec-t">热身</div><div class="card">' + D.plan.warmup.map(function (w) {
@@ -1070,6 +1171,13 @@ document.addEventListener("click", function (e) {
     case "editK": nutriSheet(ds()); break;
     case "addP": addNutri("p", +t.getAttribute("data-v")); break;
     case "addK": addNutri("k", +t.getAttribute("data-v")); break;
+    case "nutMode":
+      var dn = ds(), mm = t.getAttribute("data-v");
+      var no = D.nutri[dn] || {};
+      no.mode = mm; D.nutri[dn] = no;
+      save("nutri"); render();
+      toast(mm === "train" ? "今天按训练日算" : "今天按休息日算");
+      break;
     case "openDay": dayEditorSheet(t.getAttribute("data-day")); break;
     case "editWarm": warmEditorSheet(); break;
   }
@@ -1273,62 +1381,144 @@ function exInfoSheet(eid) {
   openSheet("动作详情", h, null, "关闭");
 }
 
+/* ---------- 计划编辑：加 / 改 / 排序 / 删 ----------
+   之前这些按钮只在 HTML 里生成了，事件里根本没有对应分支，
+   点下去毫无反应 —— 所以「跟贴纸一样」。 */
 function dayEditorSheet(dayId) {
   var day = findDay(dayId); if (!day) return;
-  renderDayEditor(day);
+  U.delArm = null;   /* 上次上膛没点的，别留到这次 */
+  openSheet(day.title, dayEditorHTML(day), null, "关闭");
+  sheetRefresh = function () { return dayEditorHTML(day); };
+  $("#sheetBody").onclick = function (e) {
+    var t = e.target.closest("[data-act]"); if (!t) return;
+    var a = t.getAttribute("data-act"), id = t.getAttribute("data-id");
+    if (a === "addEx") { exEditorSheet(null, dayId); return; }
+    if (a === "edEx") { exEditorSheet(id, dayId); return; }
+    var i = -1;
+    day.ex.forEach(function (x, k) { if (x.id === id) i = k; });
+    if (i < 0) return;
+    if (a === "mvEx") {
+      var j = i + parseInt(t.getAttribute("data-v"), 10);
+      if (j < 0 || j >= day.ex.length) return;
+      var tmp = day.ex[i]; day.ex[i] = day.ex[j]; day.ex[j] = tmp;
+      save("plan"); refreshSheet(); render();
+    } else if (a === "rmEx") {
+      /* 不用 confirm()：加到主屏幕后 iOS 可能把 confirm 吞掉，
+         那删除就永远点不动了。改成「再点一次确认」。 */
+      if (U.delArm !== id) {
+        U.delArm = id; refreshSheet();
+        setTimeout(function () { if (U.delArm === id) { U.delArm = null; refreshSheet(); } }, 3000);
+        return;
+      }
+      U.delArm = null;
+      day.ex = day.ex.filter(function (x) { return x.id !== id; });
+      save("plan"); refreshSheet(); render();
+      toast("已删除");
+    }
+  };
 }
-function renderDayEditor(day) {
-  var h = "";
-  h += '<div class="sec"><div class="sec-t">动作（' + day.ex.length + '）</div><div class="card">';
+function dayEditorHTML(day) {
+  var h = '<div class="sec"><div class="sec-t">动作（' + day.ex.length + "）</div><div class=\"card\">";
+  if (!day.ex.length) h += '<div class="row"><div class="rl"><div class="rs">这一天还没有动作</div></div></div>';
   day.ex.forEach(function (ex, i) {
-    h += '<div class="row"><div class="rl" data-act="edEx" data-id="' + ex.id + '">' +
-      '<div class="rt" style="font-size:16px">' + esc(ex.n) + '</div>' +
-      '<div class="rs">' + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + "s</div></div>" +
-      '<button class="qb gray" data-act="mvEx" data-id="' + ex.id + '" data-v="-1" style="height:30px;padding:0 9px"' + (i === 0 ? " disabled" : "") + ">↑</button>" +
-      '<button class="qb gray" data-act="mvEx" data-id="' + ex.id + '" data-v="1" style="height:30px;padding:0 9px;margin-left:4px"' + (i === day.ex.length - 1 ? " disabled" : "") + ">↓</button>" +
-      '<button class="qb gray" data-act="rmEx" data-id="' + ex.id + '" style="height:30px;padding:0 9px;margin-left:4px;color:var(--red)">✕</button>' +
-      "</div>";
+    var arm = U.delArm === ex.id;
+    h += '<div class="row ed-row">';
+    h += '<div class="rl" data-act="edEx" data-id="' + ex.id + '">' +
+      '<div class="rt" style="font-size:16px">' + esc(ex.n) + "</div>" +
+      '<div class="rs"><span class="mg-chip sm ' + mgKey(ex.mg) + '">' + esc(ex.mg) + "</span> " +
+        ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + "s</div></div>";
+    h += '<button class="qb gray mini" data-act="mvEx" data-id="' + ex.id + '" data-v="-1"' + (i === 0 ? " disabled" : "") + ">↑</button>";
+    h += '<button class="qb gray mini" data-act="mvEx" data-id="' + ex.id + '" data-v="1"' + (i === day.ex.length - 1 ? " disabled" : "") + ">↓</button>";
+    h += '<button class="qb mini ' + (arm ? "danger" : "gray") + '" data-act="rmEx" data-id="' + ex.id + '">' + (arm ? "确认" : "✕") + "</button>";
+    h += "</div>";
   });
   h += "</div></div>";
-  h += '<div class="pad"><button class="btn sec" data-act="addEx">+ 添加动作</button></div>';
-  h += '<div class="note">点动作名字可以改名称、组数、次数、休息时间。</div>';
-  openSheet(day.title, h, null, "关闭");
+  h += '<div class="pad" style="margin-top:14px"><button class="btn sec sm" data-act="addEx">+ 添加动作</button></div>';
+  h += '<div class="note">点动作名字可以改名称、部位、组数、次数、休息和要点。</div>';
+  return h;
 }
 
-function exEditorSheet(eid) {
-  var ex = findEx(eid); if (!ex) return;
+function exEditorSheet(eid, dayId) {
+  var ex = eid ? findEx(eid) : null;
+  var isNew = !ex;
+  if (isNew) ex = EX("e" + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), "", "胸", 3, "8–12", "", "", 90);
   var h = "";
   h += '<div class="card">';
-  h += '<div class="fld"><label>名称</label><input type="text" id="edName" value="' + esc(ex.n) + '"></div>';
+  h += '<div class="fld"><label>名称</label><input type="text" id="edName" value="' + esc(ex.n) + '" placeholder="比如：绳索卷腹"></div>';
   h += '<div class="fld"><label>部位</label><select id="edMg">' + MUSCLES.map(function (m) { return '<option' + (m === ex.mg ? " selected" : "") + ">" + m + "</option>"; }).join("") + "</select></div>";
   h += '<div class="fld"><label>组数</label><input class="num" type="number" id="edSets" value="' + ex.s + '" min="1" max="12"></div>';
-  h += '<div class="fld"><label>目标次数</label><input type="text" id="edReps" value="' + esc(ex.r) + '"></div>';
+  h += '<div class="fld"><label>目标次数</label><input type="text" id="edReps" value="' + esc(ex.r) + '" placeholder="6–8 / 12 / 10/侧"></div>';
   h += '<div class="fld"><label>组间休息（秒）</label><input class="num" type="number" id="edRest" value="' + ex.rest + '" step="15"></div>';
   h += "</div>";
   h += '<div class="sec" style="margin-top:16px"><div class="sec-t">动作要点</div><div class="card">' +
     '<div style="padding:12px var(--gap)"><textarea id="edCue" style="width:100%;border:none;background:transparent;font-size:16px;line-height:1.5;min-height:70px;resize:none;outline:none">' + esc(ex.c || "") + "</textarea></div></div>" +
-    '<div class="note">可以用 &lt;b&gt;加粗&lt;/b&gt; 标记重点</div></div>';
-  openSheet("编辑动作", h, function () {
-    ex.n = $("#edName").value.trim() || ex.n;
+    '<div class="note">用「 · 」隔开的每一段，在训练页会显示成一行整齐的小标签。<br>用 &lt;b&gt;加粗&lt;/b&gt; 标重点。</div></div>';
+  openSheet(isNew ? "添加动作" : "编辑动作", h, function () {
+    var nm = $("#edName").value.trim();
+    if (!nm) { toast("动作名字不能空着"); return "keep"; }
+    ex.n = nm;
     ex.mg = $("#edMg").value;
-    ex.s = clamp(parseInt($("#edSets").value, 10) || ex.s, 1, 12);
-    ex.r = $("#edReps").value.trim() || ex.r;
-    ex.rest = clamp(parseInt($("#edRest").value, 10) || ex.rest, 0, 600);
+    ex.s = clamp(parseInt($("#edSets").value, 10) || 3, 1, 12);
+    ex.r = $("#edReps").value.trim() || "8–12";
+    ex.rest = clamp(parseInt($("#edRest").value, 10) || 90, 0, 600);
     ex.c = $("#edCue").value.trim();
+    if (isNew) { var d = findDay(dayId); if (d) d.ex.push(ex); }
     save("plan");
+    if (dayId) {   /* 从某一天的编辑里进来的，存完回到那一天 */
+      toast(isNew ? "已添加「" + ex.n + "」" : "已保存");
+      dayEditorSheet(dayId);
+      return "keep";
+    }
     toast("已保存");
-  });
-  return h;
+  }, isNew ? "添加" : "保存");
+  if (isNew) setTimeout(function () { var e = $("#edName"); if (e) e.focus(); }, 350);
 }
 
 function warmEditorSheet() {
-  var h = '<div class="card">' + D.plan.warmup.map(function (w, i) {
+  openSheet("编辑热身", warmEditorHTML(), null, "关闭");
+  sheetRefresh = function () { return warmEditorHTML(); };
+  $("#sheetBody").onclick = function (e) {
+    var t = e.target.closest("[data-act]"); if (!t) return;
+    var a = t.getAttribute("data-act");
+    if (a === "addWarm") { warmItemSheet(-1); return; }
+    var i = parseInt(t.getAttribute("data-i"), 10);
+    if (a === "edWarm") { warmItemSheet(i); return; }
+    if (a === "rmWarm") { D.plan.warmup.splice(i, 1); save("plan"); refreshSheet(); toast("已删除"); }
+  };
+}
+function warmEditorHTML() {
+  var h = '<div class="card">';
+  if (!D.plan.warmup.length) h += '<div class="row"><div class="rl"><div class="rs">还没有热身项</div></div></div>';
+  D.plan.warmup.forEach(function (w, i) {
     var p = w.split("|");
-    return '<div class="row"><div class="rl"><div class="rt" style="font-size:16px">' + esc(p[0]) + '</div><div class="rs">' + esc(p[1] || "") + "</div></div>" +
-      '<button class="qb gray" data-act="rmWarm" data-i="' + i + '" style="height:30px;padding:0 10px;color:var(--red)">✕</button></div>';
-  }).join("") + "</div>";
-  h += '<div class="pad" style="margin-top:14px"><button class="btn sec" data-act="addWarm">+ 添加热身项</button></div>';
-  openSheet("编辑热身", h, null, "关闭");
+    h += '<div class="row">' +
+      '<div class="rl" data-act="edWarm" data-i="' + i + '"><div class="rt" style="font-size:16px">' + esc(p[0]) + "</div>" +
+      (p[1] ? '<div class="rs">' + esc(p[1]) + "</div>" : "") + "</div>" +
+      '<button class="qb gray mini" data-act="rmWarm" data-i="' + i + '">✕</button></div>';
+  });
+  h += "</div>";
+  h += '<div class="pad" style="margin-top:14px"><button class="btn sec sm" data-act="addWarm">+ 添加热身项</button></div>';
+  h += '<div class="note">点热身项可以改名字和说明。</div>';
+  return h;
+}
+function warmItemSheet(i) {
+  var isNew = i < 0;
+  var p = (isNew ? "" : D.plan.warmup[i] || "").split("|");
+  var h = '<div class="card">' +
+    '<div class="fld"><label>名称</label><input type="text" id="wmN" value="' + esc(p[0] || "") + '" placeholder="比如：靠墙天使"></div>' +
+    '<div class="fld"><label>说明</label><input type="text" id="wmS" value="' + esc(p[1] || "") + '" placeholder="比如：2 × 10"></div>' +
+    "</div>";
+  openSheet(isNew ? "添加热身项" : "编辑热身项", h, function () {
+    var nm = $("#wmN").value.trim();
+    if (!nm) { toast("名字不能空着"); return "keep"; }
+    var line = nm + "|" + $("#wmS").value.trim();
+    if (isNew) D.plan.warmup.push(line); else D.plan.warmup[i] = line;
+    save("plan");
+    toast("已保存");
+    warmEditorSheet();
+    return "keep";
+  }, isNew ? "添加" : "保存");
+  setTimeout(function () { var e = $("#wmN"); if (e) e.focus(); }, 350);
 }
 
 function weightSheet() {
@@ -1351,7 +1541,10 @@ function nutriSheet(date) {
   h += "</div>";
   h += '<div class="note">' + date.slice(5).replace("-", "月") + "日</div>";
   openSheet("饮食 · " + date.slice(5).replace("-", "/"), h, function () {
-    D.nutri[date] = { p: num($("#nP").value), k: num($("#nK").value) };
+    /* 保留 mode，否则每手动改一次数值，当天的训练/休息标记就被抹掉了 */
+    var o = D.nutri[date] || {};
+    o.p = num($("#nP").value); o.k = num($("#nK").value);
+    D.nutri[date] = o;
     save("nutri"); toast("已保存");
   }, "保存");
 }
@@ -1439,11 +1632,16 @@ function settingsSheet() {
   var h = "";
   h += '<div class="sec"><div class="sec-t">目标</div><div class="card">';
   h += '<div class="fld"><label>每日蛋白（g）</label><input class="num" type="number" id="stP" value="' + s.proteinTarget + '"></div>';
-  h += '<div class="fld"><label>每日热量（kcal）</label><input class="num" type="number" id="stK" value="' + s.kcalTarget + '"></div>';
+  h += '<div class="fld"><label>每日总消耗（kcal）</label><input class="num" type="number" id="stT" value="' + s.tdee + '" step="50"></div>';
+  h += '<div class="fld"><label>训练日缺口（kcal）</label><input class="num" type="number" id="stDT" value="' + s.deficitTrain + '" step="50"></div>';
+  h += '<div class="fld"><label>休息日缺口（kcal）</label><input class="num" type="number" id="stDR" value="' + s.deficitRest + '" step="50"></div>';
   h += '<div class="fld"><label>目标体重（kg）</label><input class="num" type="number" id="stW" value="' + s.weightTarget + '" step="0.5"></div>';
   h += '<div class="fld"><label>默认休息（秒）</label><input class="num" type="number" id="stR" value="' + s.defaultRest + '" step="15"></div>';
   h += "</div>";
-  h += '<div class="note">蛋白建议 1.6–2.2 g/kg。你 70kg → 112–155g。</div></div>';
+  h += '<div class="note">蛋白建议 1.6–2.2 g/kg。你 70kg → 112–155g。<br>' +
+    '总消耗 = 基础代谢 + 日常活动 + 训练。<br>' +
+    '按现在的数：训练日吃 <b>' + Math.round(s.tdee - s.deficitTrain) + "</b> kcal，休息日吃 <b>" +
+    Math.round(s.tdee - s.deficitRest) + "</b> kcal。</div></div>";
 
   h += '<div class="sec"><div class="sec-t">数据</div><div class="card">';
   h += '<div class="row" data-act="export"><div class="rl"><div class="rt">导出备份</div><div class="rs">存成一个文件，换手机时用</div></div><span class="chev">›</span></div>';
@@ -1457,7 +1655,9 @@ function settingsSheet() {
   h += '<div class="foot">数据全部保存在这台手机本地，不会上传到任何服务器。<br>唯一会丢的情况：从主屏幕删掉这个 App，或清除 Safari 数据。<br>所以请偶尔用「导出备份」存一份到 iCloud。</div>';
   openSheet("设置", h, function () {
     s.proteinTarget = clamp(parseInt($("#stP").value, 10) || 140, 30, 400);
-    s.kcalTarget = clamp(parseInt($("#stK").value, 10) || 2800, 800, 6000);
+    s.tdee = clamp(parseInt($("#stT").value, 10) || 3000, 800, 8000);
+    s.deficitTrain = clamp(parseInt($("#stDT").value, 10) || 200, 0, 2000);
+    s.deficitRest = clamp(parseInt($("#stDR").value, 10) || 500, 0, 2000);
     s.weightTarget = clamp(parseFloat($("#stW").value) || 78, 30, 200);
     s.defaultRest = clamp(parseInt($("#stR").value, 10) || 90, 0, 600);
     save("settings"); toast("已保存");
@@ -1554,8 +1754,10 @@ $("#lightbox").addEventListener("click", function (e) { if (e.target.id === "lig
 $("#sheetCancel").addEventListener("click", closeSheet);
 $("#sheetMask").addEventListener("click", closeSheet);
 $("#sheetDone").addEventListener("click", function () {
-  if (sheetOnDone) sheetOnDone();
-  closeSheet();
+  /* onDone 返回 "keep" = 它自己又开了一层（比如存完动作回到那一天的列表）。
+     这时不能关，否则刚打开的那层会被一起关掉。 */
+  var r = sheetOnDone ? sheetOnDone() : null;
+  if (r !== "keep") closeSheet();
 });
 
 window.addEventListener("scroll", function () {

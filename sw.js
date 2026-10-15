@@ -1,6 +1,6 @@
 /* Service Worker —— 让 App 离线也能用
    策略：安装时把静态文件全部缓存；之后优先走缓存，后台悄悄更新。 */
-var CACHE = "fitness-v2";
+var CACHE = "fitness-v3";
 var ASSETS = [
   "./",
   "./index.html",

@@ -42,6 +42,16 @@
   --sh-1:0 1px 2px rgba(18,24,40,.04), 0 4px 12px -6px rgba(18,24,40,.10);
   --sh-2:0 2px 6px rgba(18,24,40,.06), 0 14px 32px -12px rgba(18,24,40,.16);
   --sh-blue:0 3px 12px -2px rgba(0,122,255,.34);
+
+  /* 部位色 —— 一个部位一个色相，训练页和计划页共用，靠颜色分辨不用读字 */
+  --m-chest:#0062CC;    --m-chest-t:#EAF2FF;
+  --m-back:#4340B8;     --m-back-t:#EEEDFC;
+  --m-shoulder:#B26A00; --m-shoulder-t:#FFF4E6;
+  --m-tri:#1D8199;      --m-tri-t:#E6F6F9;
+  --m-bi:#8B3BAE;       --m-bi-t:#F7EDFC;
+  --m-leg:#1E9E44;      --m-leg-t:#E9F9EE;
+  --m-glute:#CC2043;    --m-glute-t:#FFEBF0;
+  --m-core:#8A4B22;     --m-core-t:#F8EEE7;
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
@@ -186,13 +196,27 @@ h1,h2,h3,h4,p{margin:0}
   background:var(--blue-t); padding:3px 9px; border-radius:8px;
   white-space:nowrap; font-variant-numeric:tabular-nums;
 }
-/* 左缩进 = gap(16) + 编号(24) + 间距(10) = 50，和动作名对齐 */
-.ex-cue{font-size:13px; color:var(--tx2); padding:0 var(--gap) 0 50px; line-height:1.5}
-.ex-cue b{color:#3A3A40; font-weight:600}
-.ex-last{
-  font-size:13px; color:var(--tx2); padding:8px var(--gap) 0 50px;
-  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+/* 动作要点：按「·」拆成一行小药丸，居中整齐分布。
+   之前是一长条左对齐的灰字，读起来累也看不出层次。 */
+.cue-chips{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:6px;
+  padding:3px var(--gap) 0;
 }
+.cue-chip{
+  font-size:12px; line-height:1.35; color:var(--tx2);
+  background:var(--card2); padding:4px 9px; border-radius:8px;
+  box-shadow:inset 0 0 0 1px rgba(17,17,20,.04);
+}
+.cue-chip b{color:#3A3A40; font-weight:650}
+
+/* 左缩进 = gap(16) + 编号(24) + 间距(10) = 50，和动作名对齐 */
+.ex-last{
+  font-size:12px; color:var(--tx2); padding:9px var(--gap) 0 50px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+/* flex:1 是必须的 —— 不写的话文字会按内容宽度顶出去，把右边按钮挤到第二行 */
+.ex-last .el-main{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ex-last .el-dim{color:var(--tx3)}
 .ex-last b{color:#3A3A40; font-weight:600}
 
 /* 组输入表 */
@@ -235,9 +259,11 @@ h1,h2,h3,h4,p{margin:0}
 }
 .cell.rir{font-size:14.5px}
 
-/* 快捷按钮 —— 换行而不是横向裁切，右边别再出现半截按钮 */
+/* 快捷按钮：4 个等宽铺满一行，绝不断行。
+   （「全部照上次」挪到上面的「上次」那行了，不占这里的位置。） */
 .quick{
-  display:flex; flex-wrap:wrap; gap:8px; padding:4px var(--gap) 14px;
+  display:grid; grid-template-columns:repeat(4,1fr); gap:7px;
+  padding:4px var(--gap) 14px;
 }
 .qb{
   flex:none; height:34px; padding:0 11px; border-radius:11px;
@@ -246,8 +272,16 @@ h1,h2,h3,h4,p{margin:0}
   box-shadow:inset 0 0 0 1px rgba(17,17,20,.045);
   transition:background .15s, transform .12s;
 }
+.quick .qb{
+  width:auto; min-width:0; padding:0 4px; font-size:12.5px;
+  overflow:hidden; text-overflow:ellipsis;
+}
 .qb:active{background:var(--card3); transform:scale(.96)}
 .qb.gray{color:var(--tx2)}
+/* 小号：弹层里的 ↑ ↓ ✕ 和「全部照上次」 */
+.qb.mini{height:30px; padding:0 9px; font-size:12.5px; border-radius:9px}
+.qb.mini:disabled{opacity:.32}
+.qb.mini.danger{background:#FFEBEE; color:var(--red); box-shadow:inset 0 0 0 1px rgba(255,59,48,.2)}
 /* 快捷记录按钮：等宽铺满一行，不要 3+1 那样掉一个下来 */
 .qb-grid{display:grid; gap:8px}
 .qb-grid.g4{grid-template-columns:repeat(4,1fr)}
@@ -534,3 +568,68 @@ h1,h2,h3,h4,p{margin:0}
 }
 .badge.g{background:var(--green-t); color:var(--green-d)}
 .badge.o{background:var(--orange-t); color:#B26A00}
+
+/* ---------------- 部位配色 ----------------
+   一个部位一个色相，训练页 / 计划页 / 编辑弹层共用同一套。
+   目的是「扫一眼就知道练哪儿」，不用去读灰字。 */
+.badge.chest{background:var(--m-chest-t); color:var(--m-chest)}
+.badge.back{background:var(--m-back-t); color:var(--m-back)}
+.badge.shoulder{background:var(--m-shoulder-t); color:var(--m-shoulder)}
+.badge.tri{background:var(--m-tri-t); color:var(--m-tri)}
+.badge.bi{background:var(--m-bi-t); color:var(--m-bi)}
+.badge.leg{background:var(--m-leg-t); color:var(--m-leg)}
+.badge.glute{background:var(--m-glute-t); color:var(--m-glute)}
+.badge.core{background:var(--m-core-t); color:var(--m-core)}
+
+.mg-chips{display:flex; flex-wrap:wrap; gap:5px}
+.mg-chip{
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:11.5px; font-weight:700; line-height:1;
+  padding:4px 8px; border-radius:7px;
+  background:var(--card3); color:var(--tx2);
+}
+.mg-chip s{text-decoration:none; font-size:10.5px; font-weight:600; opacity:.7}
+.mg-chip.sm{font-size:10.5px; padding:3px 6px; border-radius:6px; gap:0}
+.mg-chip.chest{background:var(--m-chest-t); color:var(--m-chest)}
+.mg-chip.back{background:var(--m-back-t); color:var(--m-back)}
+.mg-chip.shoulder{background:var(--m-shoulder-t); color:var(--m-shoulder)}
+.mg-chip.tri{background:var(--m-tri-t); color:var(--m-tri)}
+.mg-chip.bi{background:var(--m-bi-t); color:var(--m-bi)}
+.mg-chip.leg{background:var(--m-leg-t); color:var(--m-leg)}
+.mg-chip.glute{background:var(--m-glute-t); color:var(--m-glute)}
+.mg-chip.core{background:var(--m-core-t); color:var(--m-core)}
+
+/* 计划页：同一部位的动作聚在一起，中间插一条部位小标题 */
+.mg-sep{
+  display:flex; align-items:center; gap:9px;
+  font-size:11.5px; font-weight:700;
+  padding:11px var(--gap) 4px; color:var(--tx2);
+}
+.mg-sep::after{content:""; flex:1; height:.5px; background:var(--line)}
+.mg-sep.chest{color:var(--m-chest)}     .mg-sep.back{color:var(--m-back)}
+.mg-sep.shoulder{color:var(--m-shoulder)}.mg-sep.tri{color:var(--m-tri)}
+.mg-sep.bi{color:var(--m-bi)}           .mg-sep.leg{color:var(--m-leg)}
+.mg-sep.glute{color:var(--m-glute)}     .mg-sep.core{color:var(--m-core)}
+
+/* 列表行右侧的小字（比如「7 个动作 · 22 组」） */
+.row .rh{flex:none; color:var(--tx2); font-size:12.5px; font-variant-numeric:tabular-nums}
+/* 编辑弹层里那一行：左边文字 + 右边三个小按钮，间距收紧 */
+.row.ed-row{gap:6px}
+
+/* ---------------- 饮食：训练日 / 休息日 ---------------- */
+.mode-chip{
+  flex:none; display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:7px; font-size:11px; font-weight:700;
+}
+.mode-chip.train{background:var(--blue-t); color:var(--blue)}
+.mode-chip.rest{background:var(--card3); color:var(--tx2)}
+.diet-eq{
+  text-align:center; font-size:12.5px; color:var(--tx2);
+  margin-top:14px; padding-top:12px; border-top:.5px solid var(--line);
+}
+.diet-eq b{color:var(--tx); font-weight:650; font-variant-numeric:tabular-nums}
+.row .rv.meal-num{
+  font-size:14px; display:flex; align-items:baseline; gap:4px;
+  font-variant-numeric:tabular-nums;
+}
+.row .rv.meal-num .rv-t{font-size:11.5px; color:var(--tx3); text-decoration:none}
