@@ -57,9 +57,11 @@
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 /* hidden 属性必须能压过下面的 display:flex —— 否则弹层/灯箱会一直盖在屏幕上 */
 [hidden]{display:none !important}
-html{-webkit-text-size-adjust:100%; background:var(--bg)}
+/* touch-action:manipulation = 只干掉「双击缩放」，单指滚动照常。
+   这里千万不能写 none —— 那会把页面滚动一起杀掉。 */
+html{-webkit-text-size-adjust:100%; background:var(--bg); touch-action:manipulation}
 body{
-  margin:0; background:var(--bg); color:var(--tx);
+  margin:0; background:var(--bg); color:var(--tx); touch-action:manipulation;
   font:17px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
   text-rendering:optimizeLegibility;
@@ -656,3 +658,87 @@ h1,h2,h3,h4,p{margin:0}
   font-variant-numeric:tabular-nums;
 }
 .row .rv.meal-num .rv-t{font-size:11.5px; color:var(--tx3); text-decoration:none}
+
+/* ============================================================
+   记一顿：照片 · AI 提示 · 托盘 · 常吃网格
+   ============================================================ */
+
+/* 还没拍照时那两个并排按钮 */
+.meal-photo-btns{display:flex; gap:10px}
+.meal-photo-btns .btn{flex:1}
+
+/* 拍完的小图 + 说明。照片只在弹层开着的时候用，关掉就没了 */
+.meal-photo{display:flex; align-items:center; gap:12px}
+.meal-thumb{
+  width:56px; height:56px; flex:none; border-radius:12px;
+  object-fit:cover; background:var(--card3); display:block;
+}
+.meal-photo-t{flex:1; min-width:0; font-size:12.5px; line-height:1.45; color:var(--tx2)}
+.meal-photo-t b{color:var(--tx); font-weight:650}
+
+/* AI 提示条。三种状态：灰（在看/没认出来）、绿（认出来了）、红（出错） */
+.ai-box{
+  border-radius:14px; padding:12px 14px; font-size:13.5px; line-height:1.5;
+  background:var(--card2); color:var(--tx2);
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+}
+.ai-box b{color:var(--tx); font-weight:650}
+.ai-box.hit{background:var(--green-t); color:#1B7A3B}
+.ai-box.hit b{color:#145F2D}
+.ai-box.warn{background:#FFEBEE; color:#B3261E}
+.ai-box .btn{flex:none}
+.ai-spin{
+  width:14px; height:14px; flex:none; border-radius:50%;
+  border:2px solid var(--card3); border-top-color:var(--blue);
+  animation:aispin .7s linear infinite;
+}
+@keyframes aispin{to{transform:rotate(360deg)}}
+
+/* 「这一顿」托盘：一行 = 菜名 + − 份数 ＋ 删 */
+.row.tray-row{gap:6px}
+.qty-v{
+  flex:none; min-width:24px; text-align:center;
+  font-size:14px; color:var(--tx); font-variant-numeric:tabular-nums;
+}
+/* 点菜名能进去改数字，所以给个可点的手感 */
+.row .rl[data-mfe]:active{opacity:.55}
+
+/* 「常吃」网格：一格一道菜，点一下就进托盘 */
+.food-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px}
+.food{
+  display:block; width:100%; border:0; cursor:pointer;
+  background:var(--card); color:var(--tx); box-shadow:var(--sh-1);
+  border-radius:13px; padding:10px 8px; min-height:50px;
+  font:inherit; font-size:14px; line-height:1.25; text-align:center;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.food:active{transform:scale(.96)}
+.food s{
+  display:block; margin-top:3px; text-decoration:none;
+  font-size:11.5px; color:var(--tx3); font-variant-numeric:tabular-nums;
+}
+.food.on{background:var(--blue-t); color:var(--blue); box-shadow:inset 0 0 0 1.5px var(--blue)}
+.food.on s{color:var(--blue)}
+
+.cat-t{
+  font-size:12.5px; color:var(--tx3); font-weight:600;
+  margin:14px 0 8px; padding-left:2px;
+}
+
+/* 底部合计：吸在弹层下沿，滚到哪都看得见。
+   bottom:-20px 配上下内边距 20px，是为了盖住 .sheet-body 自己那 20px 底部留白 ——
+   不然滚动的内容会从合计条下面那条缝里露出来。 */
+.meal-total{
+  position:sticky; bottom:-20px; margin-top:16px;
+  padding:12px 0 20px; text-align:center; font-size:13.5px; color:var(--tx2);
+  font-variant-numeric:tabular-nums;
+  background:var(--card); border-top:.5px solid var(--line);
+}
+.meal-total b{color:var(--tx); font-size:16px; font-weight:650}
+
+/* 「早餐/午餐/晚餐」那一个小方块 */
+.meal-chip{
+  flex:none; display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:7px; font-size:11px; font-weight:700;
+  background:var(--blue-t); color:var(--blue);
+}

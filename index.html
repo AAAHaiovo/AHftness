@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- user-scalable=no / maximum-scale=1：安卓和桌面 Chrome 靠这一行就够。
+     iOS 从 iOS 10 起会忽略它，所以还配了两条手势拦截（见 app.js 最后一段）。 -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>健身</title>
 
 <!-- PWA -->

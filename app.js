@@ -179,6 +179,78 @@ var DEFAULT_SETTINGS = {
 /* 摄入目标不再固定填，改成按当天消耗倒推：消耗 − 缺口 */
 
 /* ============================================================
+   2b. 常吃清单（预置，第一次运行写进本机，之后你自己增删改）
+   一份 = 一个常见份量（一碗 / 一盘 / 一个），不按克 —— 你不用称重。
+   热量和蛋白都是估算值，觉得不对在 App 里点开就能改。
+   ============================================================ */
+var FOOD_CATS = [
+  ["staple", "主食"], ["meat", "肉蛋豆"], ["veg", "蔬菜"], ["soup", "汤"],
+  ["milk", "奶豆"], ["fruit", "水果"], ["snack", "点心加餐"]
+];
+function F(id, n, u, k, p, cat) { return { id: id, n: n, u: u, k: k, p: p, cat: cat, last: 0 }; }
+var DEFAULT_FOODS = [
+  /* 主食 */
+  F("rice", "米饭", "碗", 230, 4, "staple"),
+  F("congee", "粥", "碗", 90, 2, "staple"),
+  F("mantou", "馒头", "个", 220, 7, "staple"),
+  F("baozi", "包子", "个", 200, 6, "staple"),
+  F("noodle", "面条", "碗", 280, 9, "staple"),
+  F("dumpling", "饺子", "10个", 400, 15, "staple"),
+  F("bread", "全麦面包", "片", 75, 3, "staple"),
+  F("sweetpotato", "红薯", "个", 150, 2, "staple"),
+  F("corn", "玉米", "根", 110, 3, "staple"),
+  F("youtiao", "油条", "根", 230, 4, "staple"),
+  /* 肉蛋豆 */
+  F("chicken", "鸡胸肉", "份", 165, 31, "meat"),
+  F("chickenleg", "煎鸡腿", "个", 220, 22, "meat"),
+  F("egg", "鸡蛋", "个", 70, 6, "meat"),
+  F("tomatoegg", "番茄炒蛋", "盘", 180, 10, "meat"),
+  F("hongshao", "红烧肉", "份", 380, 12, "meat"),
+  F("huiguo", "回锅肉", "份", 350, 12, "meat"),
+  F("qinjiao", "青椒炒肉", "份", 220, 13, "meat"),
+  F("pork", "猪肉", "份", 250, 18, "meat"),
+  F("beef", "牛肉", "份", 200, 26, "meat"),
+  F("fish_st", "清蒸鱼", "份", 180, 25, "meat"),
+  F("fish_br", "红烧鱼", "份", 230, 24, "meat"),
+  F("shrimp", "虾", "份", 100, 20, "meat"),
+  F("tofu", "豆腐", "份", 120, 10, "meat"),
+  F("mapo", "麻婆豆腐", "份", 240, 12, "meat"),
+  F("ribs", "排骨", "份", 320, 18, "meat"),
+  F("sausage", "香肠", "根", 130, 6, "meat"),
+  /* 蔬菜 */
+  F("greens", "炒青菜", "盘", 90, 3, "veg"),
+  F("veggie", "清炒时蔬", "盘", 80, 3, "veg"),
+  F("bean", "干煸豆角", "盘", 150, 4, "veg"),
+  F("disanxian", "地三鲜", "盘", 220, 4, "veg"),
+  F("cucumber", "凉拌黄瓜", "盘", 40, 1, "veg"),
+  F("tomato_cold", "凉拌番茄", "盘", 50, 1, "veg"),
+  /* 汤 */
+  F("soup_seaweed", "紫菜蛋花汤", "碗", 60, 4, "soup"),
+  F("soup_tomato", "番茄蛋汤", "碗", 70, 4, "soup"),
+  F("soup_rib", "排骨汤", "碗", 120, 6, "soup"),
+  F("soup_winter", "冬瓜汤", "碗", 50, 2, "soup"),
+  /* 奶豆 */
+  F("milk", "牛奶", "盒", 160, 8, "milk"),
+  F("soymilk", "豆浆", "杯", 120, 7, "milk"),
+  F("yogurt", "酸奶", "杯", 120, 5, "milk"),
+  /* 水果 */
+  F("apple", "苹果", "个", 90, 0, "fruit"),
+  F("banana", "香蕉", "根", 105, 1, "fruit"),
+  F("orange", "橙子", "个", 60, 1, "fruit"),
+  /* 点心加餐 */
+  F("nuts", "坚果", "把", 180, 5, "snack"),
+  F("jianbing", "煎饼果子", "个", 400, 12, "snack"),
+  F("milktea", "奶茶", "杯", 350, 3, "snack"),
+  F("cake", "蛋糕", "块", 300, 4, "snack"),
+  F("chips", "薯片", "包", 300, 3, "snack")
+];
+
+/* AI 认的是「像不像你自己拍过的那张」，不是菜名 —— 公开模型里没有番茄炒蛋这种类。
+   0.90 是「最低要求有多像」，0.03 是「必须比第二像的那顿再高出一截」。
+   两个数都是实测 + 保守取值：宁可不提示，也别乱提示。用一段时间后再调。 */
+var AI_MATCH = 0.90, AI_MARGIN = 0.03;
+
+/* ============================================================
    3. 状态
    ============================================================ */
 var D = {                       // 数据（持久化）
@@ -187,7 +259,9 @@ var D = {                       // 数据（持久化）
   weight: {},                   // "2026-10-15" -> 70.2
   nutri: {},                    // "2026-10-15" -> {p: 130, k: 2600}
   settings: null,
-  photoMeta: []                 // [{id, date, pose}]
+  photoMeta: [],                // [{id, date, pose}]
+  foods: [],                    // 常吃清单 [{id,n,u,k,p,cat,last}]
+  meals: []                     // 每顿流水 [{id,date,meal,foods:[…],k,p,emb}]
 };
 
 var U = {                       // 界面状态（不持久化）
@@ -198,7 +272,8 @@ var U = {                       // 界面状态（不持久化）
   selDate: ds(),
   focus: null,                  // {eid, si}
   delArm: null,                 // 待确认删除的动作 id（第一次点 ✕ 只是上膛）
-  urls: []                      // 照片 objectURL 缓存
+  urls: [],                     // 照片 objectURL 缓存
+  mealDraft: null               // 「记一顿」的草稿，来回切层不丢已选的东西
 };
 
 var READY = false;
@@ -207,7 +282,8 @@ var READY = false;
 function loadAll() {
   return Promise.all([
     Store.get("plan"), Store.get("logs"), Store.get("weight"),
-    Store.get("nutri"), Store.get("settings"), Store.get("photoMeta")
+    Store.get("nutri"), Store.get("settings"), Store.get("photoMeta"),
+    Store.get("foods"), Store.get("meals")
   ]).then(function (r) {
     /* 老计划没有 ver（当 1 看），比新版旧就整体换成新版。
        训练记录按动作 id 存，跟计划结构无关，所以换计划不会丢历史。 */
@@ -223,6 +299,11 @@ function loadAll() {
     D.nutri = r[3] || {};
     D.settings = Object.assign({}, DEFAULT_SETTINGS, r[4] || {});
     D.photoMeta = r[5] || [];
+    /* r[6] 为 null 才是「从没存过」→ 播种预置清单。
+       你自己把它删光了会是 []，那种情况不再播种，免得删一个回来一个。 */
+    D.foods = r[6] == null ? JSON.parse(JSON.stringify(DEFAULT_FOODS)) : r[6];
+    if (r[6] == null) save("foods");
+    D.meals = r[7] || [];
     U.calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     READY = true;
   });
@@ -554,12 +635,18 @@ function toast(msg, cls) {
 var sheetOnDone = null;
 /* 弹层内部原地重绘用的。加/删/排序动作后要刷新列表，但不想把弹层关掉重开。 */
 var sheetRefresh = null;
-function refreshSheet() { if (sheetRefresh) $("#sheetBody").innerHTML = sheetRefresh(); }
+function refreshSheet() {
+  if (!sheetRefresh) return;
+  var sb = $("#sheetBody"), y = sb.scrollTop;   /* 记住滚到哪了…… */
+  sb.innerHTML = sheetRefresh();
+  sb.scrollTop = y;                             /* ……重绘完还回去，别弹回顶部 */
+}
 
 function openSheet(title, bodyHTML, onDone, doneLabel) {
   $("#sheetTitle").textContent = title || "";
   var sb = $("#sheetBody");
   sb.onclick = null;          /* 清掉上一个弹层挂的处理函数，避免串台 */
+  sb.oninput = null;          /* 同理。营养弹层用 oninput 做实时预览，不清会跟到下一个弹层 */
   sheetRefresh = null;        /* 同理，别让上一个弹层的重绘函数跟过来 */
   sb.scrollTop = 0;
   sb.innerHTML = bodyHTML;
@@ -948,6 +1035,11 @@ function viewDiet() {
     (left > 0 ? "还差 <b style='color:var(--blue)'>" + Math.round(left) + " g</b> 蛋白" : "<b style='color:var(--green)'>蛋白达标了</b>，保持") + "</div>";
   h += "</div></div></div>";
 
+  /* 记一顿：主路径。拍照（可选）→ AI 认「像不像你上次拍的」→ 点几样常吃的 */
+  h += '<div class="sec" style="margin-top:14px"><div class="sec-t">这顿吃了什么</div>';
+  h += '<div class="pad" style="padding-bottom:8px"><button class="btn" data-act="mealSheet">拍照记一顿</button></div>';
+  h += '<div class="card">' + mealRowsHTML(today) + "</div></div>";
+
   /* 快捷加 */
   h += '<div class="sec"><div class="sec-t">快速记录</div>';
   h += '<div class="pad"><div class="qb-grid g4">';
@@ -1175,8 +1267,10 @@ document.addEventListener("click", function (e) {
     case "addPhoto": addPhotoSheet(); break;
     case "viewPhoto": Store.get("photo:" + t.getAttribute("data-id")).then(function (b) { if (b) lightbox(URL.createObjectURL(b)); }); break;
     case "delPhoto": delPhoto(t.getAttribute("data-id")); break;
-    case "editP": nutriSheet(t.getAttribute("data-d") || ds()); break;
-    case "editK": nutriSheet(ds()); break;
+    case "editP": nutriSheet(t.getAttribute("data-d") || ds(), "p"); break;
+    case "editK": nutriSheet(ds(), "k"); break;
+    case "mealSheet": mealSheet(ds()); break;
+    case "mealView": mealViewSheet(t.getAttribute("data-id")); break;
     case "addP": addNutri("p", +t.getAttribute("data-v")); break;
     case "addK": addNutri("k", +t.getAttribute("data-v")); break;
     case "nutMode":
@@ -1543,20 +1637,69 @@ function weightSheet() {
   setTimeout(function () { var e = $("#wIn"); if (e) e.focus(); }, 350);
 }
 
-function nutriSheet(date) {
-  var v = D.nutri[date] || { p: 0, k: 0 };
-  var h = '<div class="card">';
-  h += '<div class="fld"><label>蛋白质（g）</label><input class="num" type="text" inputmode="decimal" id="nP" value="' + Math.round(num(v.p)) + '"></div>';
-  h += '<div class="fld"><label>热量（kcal）</label><input class="num" type="text" inputmode="numeric" id="nK" value="' + Math.round(num(v.k)) + '"></div>';
-  h += "</div>";
-  h += '<div class="note">' + date.slice(5).replace("-", "月") + "日</div>";
-  openSheet("饮食 · " + date.slice(5).replace("-", "/"), h, function () {
+/* 营养数值：默认「加这一顿」——你只输这次吃的量，App 自己跟原来的相加。
+   另给一个「改成总数」的口子，专门用来改绝对值（记错了、想清零）。
+   历史日期（最近 7 天点进来）走同一套，只是「原来」取那一天的值。 */
+function nutriSheet(date, focus) {
+  var mode = "add";                    /* add = 累加本次；set = 直接改成总数 */
+  var dl = date.slice(5).replace("-", "/");
+
+  function cur() { return D.nutri[date] || { p: 0, k: 0 }; }
+  function previewLine(p0, k0, dP, dK) {
+    return dl + "：原来 <b>" + Math.round(p0) + " g</b> ＋ 这次 <b>" + Math.round(dP) +
+      " g</b> ＝ <b>" + Math.round(p0 + dP) + " g</b><br>热量 <b>" + Math.round(k0) +
+      "</b> ＋ <b>" + Math.round(dK) + "</b> ＝ <b>" + Math.round(k0 + dK) + " kcal</b>";
+  }
+  function html() {
+    var v = cur(), p0 = num(v.p), k0 = num(v.k), h = "";
+    h += '<div class="seg" style="margin:0 0 14px">' +
+      '<button data-nm="add" class="' + (mode === "add" ? "on" : "") + '">加这一顿</button>' +
+      '<button data-nm="set" class="' + (mode === "set" ? "on" : "") + '">改成总数</button></div>';
+    h += '<div class="card">';
+    if (mode === "add") {
+      h += '<div class="fld"><label>本次蛋白（g）</label><input class="num" type="text" inputmode="decimal" id="nP" placeholder="0" value=""></div>';
+      h += '<div class="fld"><label>本次热量（kcal）</label><input class="num" type="text" inputmode="numeric" id="nK" placeholder="0" value=""></div>';
+      h += "</div>";
+      h += '<div class="note" id="nPrev">' + previewLine(p0, k0, 0, 0) + "</div>";
+    } else {
+      h += '<div class="fld"><label>蛋白总数（g）</label><input class="num" type="text" inputmode="decimal" id="nP" value="' + Math.round(p0) + '"></div>';
+      h += '<div class="fld"><label>热量总数（kcal）</label><input class="num" type="text" inputmode="numeric" id="nK" value="' + Math.round(k0) + '"></div>';
+      h += "</div>";
+      h += '<div class="note" id="nPrev">直接填 ' + dl + " 想显示的总数，会盖掉现在的值。</div>";
+    }
+    h += '<div class="note">' + date.slice(5).replace("-", "月") + "日</div>";
+    return h;
+  }
+
+  openSheet("饮食 · " + dl, html(), function () {
     /* 保留 mode，否则每手动改一次数值，当天的训练/休息标记就被抹掉了 */
     var o = D.nutri[date] || {};
-    o.p = num($("#nP").value); o.k = num($("#nK").value);
+    var p0 = num(o.p), k0 = num(o.k);
+    var ip = num($("#nP").value), ik = num($("#nK").value);
+    if (mode === "add") { o.p = p0 + ip; o.k = k0 + ik; }
+    else { o.p = ip; o.k = ik; }
     D.nutri[date] = o;
-    save("nutri"); toast("已保存");
+    save("nutri");
+    toast(mode === "add" ? "已加上 · 今天 " + Math.round(o.k) + " kcal" : "已改成 " + Math.round(o.k) + " kcal");
   }, "保存");
+
+  sheetRefresh = function () { return html(); };
+  $("#sheetBody").onclick = function (e) {
+    var b = e.target.closest("[data-nm]"); if (!b) return;
+    mode = b.getAttribute("data-nm");
+    refreshSheet();
+    var el = $("#nP"); if (el) el.focus();
+  };
+  /* 实时预览：只改 #nPrev 那一行字，不重绘整块 —— 否则输入框会丢焦点 */
+  $("#sheetBody").oninput = function (e) {
+    if (mode !== "add") return;
+    var el = e.target;
+    if (!el || (el.id !== "nP" && el.id !== "nK")) return;
+    var pv = $("#nPrev"); if (!pv) return;
+    var o = D.nutri[date] || {};
+    pv.innerHTML = previewLine(num(o.p), num(o.k), num($("#nP").value), num($("#nK").value));
+  };
+  setTimeout(function () { var el = $("#" + (focus === "k" ? "nK" : "nP")); if (el) el.focus(); }, 350);
 }
 function addNutri(f, v) {
   var t = ds();
@@ -1567,6 +1710,489 @@ function addNutri(f, v) {
   o[f] = o[f] + v;
   D.nutri[t] = o; save("nutri"); render();
   toast("+" + v + (f === "p" ? "g 蛋白" : " kcal"));
+}
+
+/* ============================================================
+   11b. 记一顿 —— 拍照 + 点选常吃
+   ------------------------------------------------------------
+   照片不存（只在弹层开着的时候当预览，关掉就没了）。
+   存下来的只有两样：这一顿吃了什么，和一个约 1.4KB 的「指纹」。
+
+   指纹是 MobileNet 倒数第二层的 1024 维输出（不是那 1000 个菜名 ——
+   公开模型里根本没有「番茄炒蛋」这种类）。它认不出菜名，但很擅长回答
+   「这张跟你上次拍的那张像不像」。所以第一次你手动告诉它这是什么，
+   下次它就能猜出来。越用越准。
+
+   不变量：D.nutri[date] 永远是当天汇总的唯一真相。D.meals 只是流水，
+   绝不拿它反推 nutri。
+   ============================================================ */
+
+/* ---------- 常吃清单 ---------- */
+function foodFind(id) {
+  var f = null;
+  D.foods.forEach(function (x) { if (x.id === id) f = x; });
+  return f;
+}
+function foodsRecent() {
+  return D.foods.slice().sort(function (a, b) { return (b.last || 0) - (a.last || 0); });
+}
+function foodsByCat(cat) {
+  return D.foods.filter(function (f) { return f.cat === cat; });
+}
+
+/* ---------- 草稿（不持久化，来回切层不丢已选） ---------- */
+function mealSlotNow() {
+  var hh = new Date().getHours();
+  return hh < 10 ? "早" : hh < 15 ? "午" : hh < 21 ? "晚" : "加";
+}
+function mealDraft(date) {
+  if (U.mealDraft && U.mealDraft.date === date) return U.mealDraft;
+  U.mealDraft = { date: date, meal: mealSlotNow(), items: [], photoUrl: "", emb: null, ai: null };
+  return U.mealDraft;
+}
+function mealTotal(dr) {
+  var k = 0, p = 0;
+  dr.items.forEach(function (it) { k += num(it.k) * it.qty; p += num(it.p) * it.qty; });
+  return { k: Math.round(k), p: Math.round(p) };
+}
+function mealHas(dr, fid) {
+  return dr.items.some(function (it) { return it.fid === fid; });
+}
+function fmtQty(q) { return q === 0.5 ? "½" : q === 1.5 ? "1½" : q === 2.5 ? "2½" : String(q); }
+function mealNames(m) {
+  var ns = m.foods.map(function (x) { return x.n; });
+  return ns.length > 4 ? ns.slice(0, 4).join("、") + " 等 " + ns.length + " 样" : ns.join("、");
+}
+function dropPhoto(dr) {
+  if (dr.photoUrl) { try { URL.revokeObjectURL(dr.photoUrl); } catch (e) {} }
+  dr.photoUrl = ""; dr.emb = null; dr.ai = null;
+}
+
+/* ---------- 那一顿的弹层 ---------- */
+function mealSheet(date) {
+  var dr = mealDraft(date);
+  openSheet("记一顿 · " + date.slice(5).replace("-", "/"), mealSheetHTML(dr), function () {
+    return mealCommit(dr);
+  }, "记下这一顿");
+  sheetRefresh = function () { return mealSheetHTML(dr); };
+
+  $("#sheetBody").onclick = function (e) {
+    var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mph],[data-muse],[data-mfnew],[data-mfe]");
+    if (!t) return;
+
+    if (t.hasAttribute("data-ms")) { dr.meal = t.getAttribute("data-ms"); refreshSheet(); return; }
+
+    if (t.hasAttribute("data-mph")) { mealPickPhoto(dr, t.getAttribute("data-mph")); return; }
+
+    if (t.hasAttribute("data-mfe")) {          /* 点菜名 → 改这份食物的数字 */
+      var it3 = dr.items[+t.getAttribute("data-mfe")];
+      if (!it3) return;
+      foodEditSheet(it3.fid, function (f2) {
+        if (!f2) {                                   /* 这个食物被删了：这一顿里也拿掉 */
+          dr.items = dr.items.filter(function (x) { return x !== it3; });
+        } else {                                     /* 数字改了：这顿也按新的算，别还按旧的 */
+          it3.n = f2.n; it3.u = f2.u; it3.k = num(f2.k); it3.p = num(f2.p);
+        }
+        mealSheet(dr.date);
+      });
+      return;
+    }
+
+    if (t.hasAttribute("data-muse")) {          /* 接受 AI 的建议：整组填进托盘 */
+      var c = dr.ai && dr.ai.cand;
+      if (!c) return;
+      dr.items = c.meal.foods.map(function (x) {
+        return { fid: x.fid, n: x.n, u: x.u, k: num(x.k), p: num(x.p), qty: x.qty || 1 };
+      });
+      refreshSheet();
+      toast("照上次那顿填好了，不对就改");
+      return;
+    }
+
+    if (t.hasAttribute("data-mfnew")) {
+      /* 新加的食物直接进这一顿 —— 你是在记这顿的时候加它的，多半就是刚吃的那道 */
+      foodEditSheet(null, function (made) {
+        if (made) dr.items.push({ fid: made.id, n: made.n, u: made.u, k: num(made.k), p: num(made.p), qty: 1 });
+        mealSheet(dr.date);
+      });
+      return;
+    }
+
+    if (t.hasAttribute("data-mf")) {
+      var fid = t.getAttribute("data-mf");
+      if (mealHas(dr, fid)) dr.items = dr.items.filter(function (it) { return it.fid !== fid; });
+      else {
+        var f = foodFind(fid);
+        if (f) dr.items.push({ fid: f.id, n: f.n, u: f.u, k: num(f.k), p: num(f.p), qty: 1 });
+      }
+      refreshSheet(); return;
+    }
+
+    if (t.hasAttribute("data-mqi")) {
+      var i = +t.getAttribute("data-mqi"), it2 = dr.items[i];
+      if (!it2) return;
+      var step = t.getAttribute("data-mq") === "+" ? 0.5 : -0.5;
+      it2.qty = clamp(Math.round((it2.qty + step) * 2) / 2, 0.5, 3);
+      refreshSheet(); return;
+    }
+
+    if (t.hasAttribute("data-mr")) {
+      dr.items.splice(+t.getAttribute("data-mr"), 1);
+      refreshSheet(); return;
+    }
+  };
+
+  /* 匹配过的那顿，把它的指纹也记下来 —— 同一个模型算的，可以直接比 */
+}
+
+function mealSheetHTML(dr) {
+  var tot = mealTotal(dr), h = "";
+
+  h += '<div class="seg" style="margin:0 0 14px">' + ["早", "午", "晚", "加"].map(function (s) {
+    return '<button data-ms="' + s + '" class="' + (dr.meal === s ? "on" : "") + '">' + s + "餐</button>";
+  }).join("") + "</div>";
+
+  h += '<div class="pad" style="padding-bottom:10px">';
+  if (dr.photoUrl) {
+    h += '<div class="card"><div class="card-pad meal-photo">' +
+      '<img class="meal-thumb" src="' + dr.photoUrl + '" alt="">' +
+      '<div class="meal-photo-t">照片只用来认这一顿，<b>不会存下来</b>。</div>' +
+      '<button class="qb mini gray" data-mph="rm">✕</button></div></div>';
+  } else {
+    h += '<div class="meal-photo-btns">' +
+      '<button class="btn sec sm" data-mph="cam">拍照</button>' +
+      '<button class="btn sec sm" data-mph="lib">从相册选</button></div>';
+  }
+  h += "</div>";
+
+  if (dr.photoUrl) h += aiBoxHTML(dr);
+
+  if (dr.items.length) {
+    h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">这一顿（' + dr.items.length + "）</div><div class=\"card\">";
+    dr.items.forEach(function (it, i) {
+      h += '<div class="row tray-row">' +
+        '<div class="rl" data-mfe="' + i + '"><div class="rt" style="font-size:16px">' + esc(it.n) + " ›</div>" +
+        '<div class="rs">' + Math.round(num(it.k) * it.qty) + " kcal · " + Math.round(num(it.p) * it.qty) + " g 蛋白</div></div>" +
+        '<button class="qb mini gray" data-mqi="' + i + '" data-mq="-">−</button>' +
+        '<span class="qty-v">' + fmtQty(it.qty) + "</span>" +
+        '<button class="qb mini gray" data-mqi="' + i + '" data-mq="+">＋</button>' +
+        '<button class="qb mini gray" data-mr="' + i + '">✕</button></div>';
+    });
+    h += "</div></div>";
+  }
+
+  h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">常吃</div><div class="food-grid">';
+  foodsRecent().forEach(function (f) { h += foodChipHTML(f, mealHas(dr, f.id)); });
+  h += "</div>";
+  h += '<div class="pad" style="margin-top:10px"><button class="btn sec sm" data-mfnew="1">+ 新增常吃</button></div></div>';
+
+  h += '<div class="sec" style="margin:16px 0 0"><div class="sec-t">全部</div>';
+  FOOD_CATS.forEach(function (c) {
+    var arr = foodsByCat(c[0]);
+    if (!arr.length) return;
+    h += '<div class="cat-t">' + c[1] + "</div>";
+    h += '<div class="food-grid">';
+    arr.forEach(function (f) { h += foodChipHTML(f, mealHas(dr, f.id)); });
+    h += "</div>";
+  });
+  h += "</div>";
+
+  h += '<div class="note">点一下食物＝一份。吃了一半按 −，吃了两碗按 ＋。<br>' +
+    "点「这一顿」里的<b>菜名</b>能改它一份是多少热量——改的是「常吃」里的数字，以后每次都按新的算。</div>";
+  h += '<div class="meal-total">本顿合计 <b>' + tot.k + "</b> kcal · <b>" + tot.p + "</b> g 蛋白</div>";
+
+  return h;
+}
+
+function foodChipHTML(f, on) {
+  return '<button class="food' + (on ? " on" : "") + '" data-mf="' + f.id + '">' + esc(f.n) +
+    "<s>" + Math.round(num(f.k)) + "</s></button>";
+}
+
+/* ---------- AI 提示条 ---------- */
+function aiBoxHTML(dr) {
+  var a = dr.ai;
+  if (!a) return "";
+  if (a.st === "loading") return '<div class="pad" style="padding-bottom:12px"><div class="ai-box"><span class="ai-spin"></span>' + esc(a.msg) + "</div></div>";
+  if (a.st === "err") return '<div class="pad" style="padding-bottom:12px"><div class="ai-box warn">' + esc(a.msg) + "</div></div>";
+  if (a.st === "ok" && a.cand) {
+    var m = a.cand.meal;
+    return '<div class="pad" style="padding-bottom:12px"><div class="ai-box hit">看着像 <b>' +
+      esc(m.date.slice(5).replace("-", "/")) + "</b> 那顿 · " + esc(mealNames(m)) +
+      '<button class="btn sm" data-muse="1" style="margin-top:10px;width:100%">就用这一组</button></div></div>';
+  }
+  return '<div class="pad" style="padding-bottom:12px"><div class="ai-box">这张没认出来。下面点一下是哪几样，<b>下次拍同一道菜它就记住了</b>。</div></div>';
+}
+
+/* ---------- 拍照 / 相册 ---------- */
+function mealPickPhoto(dr, how) {
+  if (how === "rm") { dropPhoto(dr); refreshSheet(); return; }
+  pickPhoto(function (file) {
+    dropPhoto(dr);
+    dr.photoUrl = URL.createObjectURL(file);
+    var firstTime = !_embModel;
+    dr.ai = { st: "loading", msg: firstTime ? "第一次要下载 AI（约 18MB，只下一次），大概十几秒…" : "正在看这张…" };
+    refreshSheet();
+
+    var img = new Image();
+    img.onload = function () {
+      ensureAI(function (err) {
+        if (err) {
+          dr.ai = { st: "err", msg: "AI 没加载上（可能是没连上网）。不影响记，直接点下面常吃的就行。" };
+          refreshSheet(); return;
+        }
+        try {
+          dr.emb = vecToStr(embedImage(img));
+          dr.ai = { st: "ok", cand: aiMatch(dr.emb) };
+        } catch (e) {
+          dr.emb = null;
+          dr.ai = { st: "err", msg: "这张图读不了，直接点下面常吃的就行。" };
+        }
+        refreshSheet();
+      });
+    };
+    img.onerror = function () { dr.ai = { st: "err", msg: "这张图读不了" }; refreshSheet(); };
+    img.src = dr.photoUrl;
+  }, how === "cam");
+}
+
+/* ---------- 提交 ---------- */
+function mealCommit(dr) {
+  if (!dr.items.length) { toast("先点一下吃了什么"); return "keep"; }
+  var date = dr.date, tot = mealTotal(dr);
+  if (!tot.k && !tot.p) { toast("这几样的热量都是 0，先改一下它们的数字"); return "keep"; }
+
+  /* 累加进当天汇总。先 num() 补齐 p/k：老数据可能只有 mode。mode 原样保留 */
+  var o = D.nutri[date] || { p: 0, k: 0 };
+  o.p = num(o.p) + tot.p;
+  o.k = num(o.k) + tot.k;
+  D.nutri[date] = o;
+
+  var id = "m" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+  D.meals.push({
+    id: id, date: date, meal: dr.meal,
+    foods: dr.items.slice(),        /* 存快照：以后改常吃清单不会篡改历史 */
+    k: tot.k, p: tot.p,
+    emb: dr.emb || null             /* 指纹约 1.4KB，照片本身不留 */
+  });
+
+  var now = Date.now();
+  dr.items.forEach(function (it) {
+    var f = foodFind(it.fid);
+    if (f) f.last = now;            /* 记过就排到「常吃」前面 */
+  });
+
+  save("nutri"); save("meals"); save("foods");
+  dropPhoto(dr);
+  U.mealDraft = null;
+  toast(dr.meal + "餐已记下 · " + tot.k + " kcal · " + tot.p + " g 蛋白");
+  return null;
+}
+
+/* ---------- 饮食页：今天已记的几顿 ---------- */
+function mealRowsHTML(date) {
+  var ms = D.meals.filter(function (m) { return m.date === date; });
+  if (!ms.length) {
+    return '<div class="row"><div class="rl"><div class="rs">今天还没记。' +
+      "第一顿随便点几样，以后拍照它就认得了。</div></div></div>";
+  }
+  return ms.map(function (m) {
+    return '<div class="row" data-act="mealView" data-id="' + m.id + '">' +
+      '<span class="meal-chip">' + esc(m.meal) + "</span>" +
+      '<div class="rl"><div class="rt" style="font-size:16px">' + esc(mealNames(m)) + "</div>" +
+      '<div class="rs">' + Math.round(num(m.k)) + " kcal · " + Math.round(num(m.p)) + " g 蛋白" +
+      (m.emb ? " · 认得住" : "") + "</div></div>" +
+      '<span class="chev">›</span></div>';
+  }).join("");
+}
+
+/* ---------- 某一顿：详情 / 删除 ---------- */
+function mealViewSheet(id) {
+  U.delArm = null;
+  function find() {
+    var m = null;
+    D.meals.forEach(function (x) { if (x.id === id) m = x; });
+    return m;
+  }
+  function html() {
+    var m = find();
+    if (!m) return '<div class="note">这一顿已经删掉了。</div>';
+    var h = '<div class="card">';
+    m.foods.forEach(function (it) {
+      h += '<div class="row"><div class="rl"><div class="rt" style="font-size:16px">' + esc(it.n) + "</div>" +
+        '<div class="rs">' + fmtQty(it.qty) + " " + esc(it.u || "份") + " · " +
+        Math.round(num(it.k) * it.qty) + " kcal · " + Math.round(num(it.p) * it.qty) + " g 蛋白</div></div></div>";
+    });
+    h += "</div>";
+    h += '<div class="note">' + esc(m.date) + " · " + esc(m.meal) + "餐 · 合计 " + Math.round(num(m.k)) +
+      " kcal · " + Math.round(num(m.p)) + " g 蛋白<br>照片没有存，只留了一个指纹用来下次认它。</div>";
+    var arm = U.delArm === id;
+    h += '<div class="pad" style="margin-top:14px"><button class="btn ' + (arm ? "danger" : "gray") +
+      ' sm" data-md="1">' + (arm ? "再点一次，确认删除" : "删掉这一顿") + "</button></div>";
+    return h;
+  }
+  openSheet("这一顿", html(), null, "关闭");
+  sheetRefresh = html;
+  $("#sheetBody").onclick = function (e) {
+    var b = e.target.closest("[data-md]"); if (!b) return;
+    if (U.delArm !== id) {                  /* 第一次点只是上膛，3 秒后自动收回 */
+      U.delArm = id; refreshSheet();
+      setTimeout(function () { if (U.delArm === id) { U.delArm = null; if (find()) refreshSheet(); } }, 3000);
+      return;
+    }
+    var m = find(); if (!m) return;
+    var o = D.nutri[m.date] || { p: 0, k: 0 };
+    /* 下限 0：你手动改过总数的话，别扣成负数 */
+    o.p = Math.max(0, num(o.p) - num(m.p));
+    o.k = Math.max(0, num(o.k) - num(m.k));
+    D.nutri[m.date] = o;
+    D.meals = D.meals.filter(function (x) { return x.id !== id; });
+    save("nutri"); save("meals");
+    U.delArm = null;
+    toast("已删除这一顿");
+    closeSheet();
+  };
+}
+
+/* ---------- 常吃：新增 / 改 / 删（嵌在「记一顿」上面那一层） ---------- */
+function foodEditSheet(id, after) {
+  var isNew = !id, f = null;
+  D.foods.forEach(function (x) { if (x.id === id) f = x; });
+  if (isNew) f = F("f" + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), "", "份", 0, 0, "meat");
+
+  var h = '<div class="card">';
+  h += '<div class="fld"><label>名称</label><input type="text" id="fdN" value="' + esc(f.n) + '" placeholder="比如：番茄炒蛋"></div>';
+  h += '<div class="fld"><label>一份叫</label><input type="text" id="fdU" value="' + esc(f.u) + '" placeholder="份 / 碗 / 个" style="width:90px;text-align:right"></div>';
+  h += '<div class="fld"><label>一份热量（kcal）</label><input class="num" type="text" inputmode="numeric" id="fdK" value="' + Math.round(num(f.k)) + '"></div>';
+  h += '<div class="fld"><label>一份蛋白（g）</label><input class="num" type="text" inputmode="decimal" id="fdP" value="' + Math.round(num(f.p)) + '"></div>';
+  h += '<div class="fld"><label>归到哪类</label><select id="fdC">' + FOOD_CATS.map(function (c) {
+    return '<option value="' + c[0] + '"' + (c[0] === f.cat ? " selected" : "") + ">" + c[1] + "</option>";
+  }).join("") + "</select></div>";
+  h += "</div>";
+  h += '<div class="note">按你平时吃的那一份填就行，不用称重。以后点一下就是这一份。</div>';
+  if (!isNew) h += '<div class="pad" style="margin-top:14px"><button class="btn danger sm" data-fd="del">删掉这个食物</button></div>';
+
+  openSheet(isNew ? "新增常吃" : "编辑常吃", h, function () {
+    var nm = $("#fdN").value.replace(/^\s+|\s+$/g, "");
+    if (!nm) { toast("名字不能空着"); return "keep"; }
+    f.n = nm;
+    f.u = $("#fdU").value.replace(/^\s+|\s+$/g, "") || "份";
+    f.k = Math.max(0, Math.round(num($("#fdK").value)));
+    f.p = Math.max(0, Math.round(num($("#fdP").value)));
+    f.cat = $("#fdC").value;
+    if (isNew) { f.last = Date.now(); D.foods.push(f); }   /* 新加的排到「常吃」最前面 */
+    save("foods");
+    toast(isNew ? "已加进常吃" : "已保存");
+    if (after) { after(f); return "keep"; }     /* 把这条回给调用方，然后回到「记一顿」那层 */
+    return null;
+  }, isNew ? "添加" : "保存");
+
+  $("#sheetBody").onclick = function (e) {
+    var b = e.target.closest("[data-fd]"); if (!b) return;
+    D.foods = D.foods.filter(function (x) { return x.id !== f.id; });
+    save("foods");
+    toast("已删除");
+    if (after) { after(null); return; }         /* null = 被删了，调用方自己看着办 */
+    closeSheet();
+  };
+  setTimeout(function () { var el = $("#fdN"); if (el) el.focus(); }, 350);
+}
+
+/* ============================================================
+   11c. AI：MobileNet 特征 + 「像不像」匹配
+   ------------------------------------------------------------
+   tf.min.js 和模型都按需加载：App 启动时一个字节都不碰，
+   第一次点「拍照」才拉，之后由 Service Worker 缓存下来，离线可用。
+   ============================================================ */
+var _embModel = null, _aiWant = null;
+
+function loadTF(cb) {
+  if (window.tf && window.tf.loadLayersModel) { cb(null); return; }
+  var s = document.createElement("script");
+  s.src = "tf.min.js";
+  s.onload = function () { cb(window.tf ? null : new Error("tf 没起来")); };
+  s.onerror = function () { cb(new Error("tf.min.js 下载失败")); };
+  document.head.appendChild(s);
+}
+function ensureAI(cb) {
+  if (_embModel) { cb(null); return; }
+  if (_aiWant) { _aiWant.push(cb); return; }        /* 正在加载：排队等着，别重复下 18MB */
+  _aiWant = [cb];
+  function flush(err) {
+    var q = _aiWant; _aiWant = null;
+    q.forEach(function (fn) { fn(err); });
+  }
+  loadTF(function (e1) {
+    if (e1) { flush(e1); return; }
+    tf.loadLayersModel("model/model.json").then(function (base) {
+      /* 取倒数第二层（全局平均池化）当特征，不用最后那 1000 个菜名 */
+      var pool = null;
+      base.layers.forEach(function (l) { if (l.getClassName() === "GlobalAveragePooling2D") pool = l; });
+      _embModel = tf.model({ inputs: base.inputs, outputs: (pool || base.layers[base.layers.length - 2]).output });
+      flush(null);
+    }).catch(function (e2) { flush(e2); });
+  });
+}
+/* 中心方形裁切到 224×224 —— 和模型训练时的取景一致，也避免拉伸变形 */
+function to224(img) {
+  var c = document.createElement("canvas");
+  c.width = 224; c.height = 224;
+  var s = Math.min(img.width, img.height);
+  c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 224, 224);
+  return c;
+}
+function embedImage(img) {
+  return tf.tidy(function () {
+    var x = tf.browser.fromPixels(to224(img)).toFloat().expandDims(0);
+    var half = tf.scalar(127.5);                    /* MobileNet 要 [-1,1] 输入 */
+    var out = _embModel.predict(x.sub(half).div(half));
+    return Array.prototype.slice.call(out.dataSync());
+  });
+}
+/* 压成 1024 个字节再转 base64（约 1.4KB）。
+   特征都是 ReLU 后的非负值，等比压到 0–255 不影响余弦相似度。 */
+function vecToStr(v) {
+  var n = v.length, u = new Uint8Array(n), i, m = 0;
+  for (i = 0; i < n; i++) if (v[i] > m) m = v[i];
+  if (m <= 0) m = 1;
+  for (i = 0; i < n; i++) u[i] = clamp(Math.round((v[i] / m) * 255), 0, 255);
+  var s = "";
+  for (i = 0; i < n; i++) s += String.fromCharCode(u[i]);
+  return btoa(s);
+}
+function strToVec(s) {
+  var b = atob(s), u = new Uint8Array(b.length), i;
+  for (i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+  return u;
+}
+function cosVec(a, b) {
+  var s = 0, na = 0, nb = 0, i, n = Math.min(a.length, b.length);
+  for (i = 0; i < n; i++) { s += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  if (!na || !nb) return 0;
+  return s / Math.sqrt(na * nb);
+}
+function setKey(m) {
+  return m.foods.map(function (x) { return x.fid || x.n; }).sort().join("|");
+}
+/* 找最像的那一顿。两道关卡都过才敢提示：
+   ① 最像的要 ≥ AI_MATCH；② 还要比「另一组不一样的菜」里最像的那顿再高出 AI_MARGIN。
+   实测：同一道菜 0.96–1.00，不同菜 0.38–0.82。这两条是保守取值，宁可不提示。 */
+function aiMatch(str) {
+  var q = strToVec(str), best = null, bestS = -1;
+  D.meals.forEach(function (m) {
+    if (!m.emb) return;
+    var s = cosVec(q, strToVec(m.emb));
+    if (s > bestS) { bestS = s; best = m; }
+  });
+  if (!best || bestS < AI_MATCH) return null;
+  var key = setKey(best), other = -1;
+  D.meals.forEach(function (m) {
+    if (!m.emb || setKey(m) === key) return;
+    var s = cosVec(q, strToVec(m.emb));
+    if (s > other) other = s;
+  });
+  if (other >= 0 && bestS - other < AI_MARGIN) return null;
+  return { meal: best, score: bestS };
 }
 
 function addPhotoSheet() {
@@ -1596,9 +2222,10 @@ function addPhotoSheet() {
     });
   };
 }
-function pickPhoto(cb) {
+function pickPhoto(cb, cam) {
   var inp = document.createElement("input");
   inp.type = "file"; inp.accept = "image/*";
+  if (cam) inp.setAttribute("capture", "environment");   /* 手机点「拍照」直接进相机，不弹选择菜单 */
   inp.style.display = "none";
   document.body.appendChild(inp);
   inp.addEventListener("change", function () {
@@ -1741,6 +2368,9 @@ function doImport() {
         jobs.push(Store.set("nutri", pack.data.nutri || {}));
         jobs.push(Store.set("photoMeta", pack.data.photoMeta || []));
         jobs.push(Store.set("settings", pack.data.settings || DEFAULT_SETTINGS));
+        /* 常吃清单和吃饭流水。旧备份里没有这两个字段 → foods 用 null 让 loadAll 去播种预置清单 */
+        jobs.push(Store.set("foods", pack.data.foods == null ? null : pack.data.foods));
+        jobs.push(Store.set("meals", pack.data.meals == null ? [] : pack.data.meals));
         Promise.all(jobs).then(function () { location.reload(); });
       } catch (e) { toast("文件读不了，可能损坏了"); }
     };
@@ -1772,6 +2402,17 @@ $("#sheetDone").addEventListener("click", function () {
   var r = sheetOnDone ? sheetOnDone() : null;
   if (r !== "keep") closeSheet();
 });
+
+/* 禁掉两指捏合缩放。
+   index.html 的 viewport 管住了安卓和桌面 Chrome，但 iOS 从 iOS 10 起
+   直接无视 user-scalable=no，只能在这里拦。
+   只在「两根手指以上」时拦 —— 单指滚页面、滚弹层、点输入框全都不受影响。
+   passive:false 是必须的，否则 preventDefault() 会被浏览器忽略。 */
+document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+document.addEventListener("gesturechange", function (e) { e.preventDefault(); }, { passive: false });
+document.addEventListener("touchmove", function (e) {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
 
 window.addEventListener("scroll", function () {
   $("#hdr").classList.toggle("scrolled", window.scrollY > 12);
