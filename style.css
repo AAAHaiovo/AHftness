@@ -720,6 +720,18 @@ h1,h2,h3,h4,p{margin:0}
 .food.on{background:var(--blue-t); color:var(--blue); box-shadow:inset 0 0 0 1.5px var(--blue)}
 .food.on s{color:var(--blue)}
 
+/* 「管理常吃」模式：每个 chip 右上角挂个红叉，点进去能改数字 / 删掉。
+   .food 是 overflow:hidden，叉只能放在框里，挂到角上会被裁掉。
+   padding-right 是留给叉的位置，免得菜名钻到它底下。 */
+.food.mg{position:relative; padding-right:16px}
+.food-x{
+  position:absolute; top:3px; right:3px;
+  width:14px; height:14px; border-radius:50%;
+  background:var(--red); color:#fff;
+  font-size:9px; font-style:normal; font-weight:700;
+  line-height:14px; text-align:center; letter-spacing:0;
+}
+
 .cat-t{
   font-size:12.5px; color:var(--tx3); font-weight:600;
   margin:14px 0 8px; padding-left:2px;
@@ -742,3 +754,29 @@ h1,h2,h3,h4,p{margin:0}
   width:22px; height:22px; border-radius:7px; font-size:11px; font-weight:700;
   background:var(--blue-t); color:var(--blue);
 }
+
+/* ============================================================
+   饮食页底部的「每天怎么吃」速查卡
+   默认收起（只有一行），点开才渲染里面的内容。
+   纯文字排版，不参与任何计算。
+   ============================================================ */
+.dp-meal{padding:11px 0; border-bottom:1px solid var(--line)}
+.dp-meal:last-child{border-bottom:0; padding-bottom:2px}
+.dp-hd{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+.dp-hd b{font-size:15px; font-weight:650}
+.dp-hd s{text-decoration:none; font-size:13px; color:var(--tx2); font-variant-numeric:tabular-nums}
+.dp-it{font-size:13px; color:var(--tx2); line-height:1.65; margin-top:5px}
+.dp-sum{
+  font-size:12.5px; color:var(--tx3); line-height:1.65;
+  margin-top:12px; padding-top:10px; border-top:1px dashed var(--line);
+}
+.dp-t{font-size:13px; font-weight:700; color:var(--tx2); padding-bottom:4px}
+.dp-buy{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:8px;
+  padding:9px 0; border-bottom:1px solid var(--line);
+}
+.dp-buy:last-of-type{border-bottom:0}
+.dp-buy b{font-size:14px; font-weight:600}
+.dp-buy s{text-decoration:none; font-size:13px; font-weight:650; color:var(--blue); margin-left:auto; font-variant-numeric:tabular-nums}
+.dp-s{flex-basis:100%; font-size:12.5px; color:var(--tx3); line-height:1.7}
+.dp-s b{color:var(--tx2); font-weight:650}

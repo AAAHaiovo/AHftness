@@ -104,25 +104,58 @@ function EX(id, n, mg, s, r, c, b, rest) { return { id: id, n: n, mg: mg, s: s, 
 var DEFAULT_PLAN = {
   /* 计划换代号。手机上已经存了旧计划时，靠它决定要不要用新版覆盖。
      只改结构不改这个号，老用户永远看不到新计划。 */
-  ver: 2,
-  warmup: [
-    "泡沫轴滚胸椎|10 次",
-    "门框胸大肌 / 胸小肌拉伸|每侧 30 秒 × 2",
-    "上斜方拉伸|左 2 组 / 右 3 组 × 30 秒",
-    "肩胛提肌拉伸|左 2 组 / 右 3 组 × 30 秒",
-    "靠墙天使|2 × 10",
-    "单臂弹力带下拉|2 × 15　只做左侧",
-    "弹力带面拉|2 × 15",
-    "下巴回收|2 × 10（停 3 秒）",
-    "俯卧 Y-T-W|每个字母 × 10"
-  ],
+  ver: 3,
+  /* 热身分五组：common = 每次必做（治体态）；d1–d4 = 当天专项（练哪就热哪）；
+     ramp = 递增热身组（正式组之前的轻重量组）；after = 训练后静态拉伸。
+     静态拉伸原来排在训练前 —— 会轻微掉力量，2026-10-16 挪到训练后了。 */
+  warmup: {
+    common: [
+      "泡沫轴滚胸椎|10 次",
+      "靠墙天使|2 × 10　激活下斜方",
+      "单臂弹力带下拉|2 × 15　只做左侧",
+      "下巴回收|2 × 10（停 3 秒）",
+      "俯卧 Y-T-W|每个字母 × 10"
+    ],
+    d1: [
+      "弹力带肩外旋|2 × 15 / 侧　肩袖预热，左肩弹响必做",
+      "四点跪姿胸椎旋转|每侧 8 次",
+      "肩胛俯卧撑（或推墙加一）|2 × 10　唤醒前锯肌",
+      "空杆上斜卧推|2 × 10　过一遍沉肩压凳、肘 45°"
+    ],
+    d2: [
+      "弹力带直臂下压|2 × 15　预演「背阔肌发力」",
+      "肩胛引体 / 悬垂沉肩|2 × 8　专练「先把肩往下压」",
+      "弹力带下拉|2 × 12",
+      "悬垂放松|30 秒"
+    ],
+    d3: [
+      "弹力带肩外旋|2 × 15 / 侧",
+      "哑铃侧平举|1 × 15　用 4–5kg 只找「沉肩 + 肘带」",
+      "面拉|1 × 15　用最轻重量只找「肘高 + 顶点外旋」"
+    ],
+    d4: [
+      "髋绕环 / 90-90 转髋|每侧 8 次",
+      "臀桥|2 × 15　先夹臀再顶",
+      "蚌式|2 × 15 / 侧　臀中肌，防膝盖内扣",
+      "靠墙踝背屈|每侧 10 次",
+      "空杆深蹲 + 空杆 RDL|2 × 8 / 2 × 10　过一遍动作模式"
+    ],
+    ramp: [
+      "递增热身组|空杆/最轻 ×10 → 50% ×8 → 70% ×5 → 85% ×2 → 歇 2 分钟开练。只做当天第一个动作"
+    ],
+    after: [
+      "门框胸大肌 / 胸小肌拉伸|每侧 30 秒 × 2",
+      "上斜方拉伸|左 2 组 / 右 3 组 × 30 秒",
+      "肩胛提肌拉伸|左 2 组 / 右 3 组 × 30 秒"
+    ]
+  },
   days: [
     {
       id: "d1", tab: "DAY 1", title: "胸 + 三头", short: "胸",
       hint: "弱点优先：上胸（动作 1、2 排最前，就因为它）",
       ex: [
         EX("e1", "上斜哑铃卧推", "胸", 4, "6–8", "对握 · 凳 30–40° · 肘 45° · <b>沉肩压凳</b>", "瓦氏呼吸", 150),
-        EX("e2", "上斜绳索夹胸", "胸", 4, "12–15", "肘角固定 · <b>顶峰夹 1 秒</b>", "常规呼吸", 75),
+        EX("e2", "上斜绳索夹胸", "胸", 4, "12–15", "龙门架<b>低位</b>滑轮 · 肘角固定 · 往<b>下巴方向</b>夹 · 顶点双手<b>交叉过中线</b> · 夹紧 1 秒", "常规呼吸", 75),
         EX("e3", "平板杠铃卧推", "胸", 3, "6–8", "前臂垂直 · 触胸乳线 · 拇指绕杠", "瓦氏呼吸", 180),
         EX("e4", "双杠臂屈伸", "胸", 3, "8–10", "负 10kg · 略前倾 · <b>上臂平行即停</b>", "常规呼吸", 120),
         EX("e5", "绳索下压 / 碎颅者", "三头", 3, "10–12", "二选一 · <b>上臂固定不动</b>", "常规呼吸", 75)
@@ -145,7 +178,7 @@ var DEFAULT_PLAN = {
       hint: "和「DAY 3B · 腿 + 臀」轮流练：这套练完，下次自动轮到腿。",
       ex: [
         EX("e12", "哑铃侧平举", "肩", 4, "12–15", "倒水式 · <b>不过肩高</b> · 沉肩 · 用肘尖够天花板", "常规呼吸", 60),
-        EX("e13", "面拉", "肩", 4, "15–20", "绳索<b>额头高</b> · 拉到底<b>外旋</b> · 停 1 秒", "常规呼吸", 60),
+        EX("e13", "面拉", "肩", 4, "15–20", "用<b>长绳</b> · 绳索<b>额头高</b> · 肘与肩同高 · <b>先拉开再外旋</b> · 停 1 秒", "常规呼吸", 60),
         EX("e14", "反向蝴蝶机", "肩", 3, "12–15", "胸贴垫 · <b>别耸肩</b> · 停 1 秒", "常规呼吸", 60),
         EX("e15", "实力推", "肩", 3, "6–8", "前臂垂直 · <b>核心收紧不许后仰</b>", "瓦氏呼吸", 150),
         EX("e22", "绳索卷腹", "核心", 3, "12–15", "含胸弓背 · <b>用腹肌把肘拉向膝盖</b> · 不是手臂在拉", "呼气发力，回来吸气", 60),
@@ -166,11 +199,50 @@ var DEFAULT_PLAN = {
   ]
 };
 
+/* 热身分组。第三个是弹层里分段控件用的短名（七个按钮挤不下长名字）。 */
+var WARM_GROUPS = [
+  ["common", "热身 · 每次必做", "每次"],
+  ["d1", "热身 · DAY 1 胸+三头", "胸"],
+  ["d2", "热身 · DAY 2 背+二头", "背"],
+  ["d3", "热身 · DAY 3A 肩+腹", "肩"],
+  ["d4", "热身 · DAY 3B 腿+臀", "腿"],
+  ["ramp", "热身 · 递增热身组", "递增"],
+  ["after", "训练后拉伸", "训练后"]
+];
+/* 老版本的热身是一个整体数组（不分天）。手机上存过老计划时别让它炸 —— 当「每次必做」读。 */
+function warmArr(k) {
+  var w = D.plan && D.plan.warmup;
+  if (!w) return [];
+  if (Object.prototype.toString.call(w) === "[object Array]") return k === "common" ? w : [];
+  return w[k] || [];
+}
+/* 写入前先确保这一组存在。warmArr 在「这一组还没建过」时会返回一个临时空数组，
+   往它里面 push 是白 push —— 所以改动一律走这个。 */
+function warmEnsure(k) {
+  var w = D.plan.warmup;
+  if (!w || Object.prototype.toString.call(w) === "[object Array]") {
+    D.plan.warmup = { common: w || [] };
+    w = D.plan.warmup;
+  }
+  if (!w[k]) w[k] = [];
+  return w[k];
+}
+function warmRowHTML(w, big) {
+  var p = w.split("|");
+  return '<div class="row"><div class="rl"><div class="rt"' + (big ? ' style="font-size:16px"' : "") + ">" +
+    esc(p[0]) + '</div><div class="rs">' + esc(p[1] || "") + "</div></div></div>";
+}
+
 var MUSCLES = ["胸", "背", "肩", "三头", "二头", "腿", "臀", "核心"];
 
 var DEFAULT_SETTINGS = {
-  proteinTarget: 140,   // g
-  tdee: 3000,           // 每日总消耗 kcal（基础代谢 + 日常活动 + 训练）
+  /* 消耗从 3000 改成 2600：3000 是按「每天都有大运动量」估的，日常上课 +
+     一周三练的学生到不了。181cm/70kg 按 Mifflin × 1.5 算出来约 2600。
+     目标摄入 = 2600 − 缺口，训练日 2400、休息日 2100，跟饮食计划对得上。
+     （这个只影响新装 / 清空数据后的默认值；已经存过的设置不会被覆盖，
+       要改得自己去「设置」里改。）*/
+  proteinTarget: 150,   // g
+  tdee: 2600,           // 每日总消耗 kcal（基础代谢 + 日常活动 + 训练）
   deficitTrain: 200,    // 训练日热量缺口
   deficitRest: 500,     // 休息日热量缺口
   weightTarget: 78,     // kg
@@ -273,7 +345,9 @@ var U = {                       // 界面状态（不持久化）
   focus: null,                  // {eid, si}
   delArm: null,                 // 待确认删除的动作 id（第一次点 ✕ 只是上膛）
   urls: [],                     // 照片 objectURL 缓存
-  mealDraft: null               // 「记一顿」的草稿，来回切层不丢已选的东西
+  mealDraft: null,              // 「记一顿」的草稿，来回切层不丢已选的东西
+  foodMg: false,                // 「记一顿」里是否开着「管理常吃」模式
+  dietPlanOpen: false           // 饮食页底部「每天怎么吃」速查卡是否展开
 };
 
 var READY = false;
@@ -577,6 +651,13 @@ var Rest = (function () {
       } else if (!on && wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
     } catch (e) {}
   }
+  /* 系统在 App 退到后台时会自动把「屏幕常亮」放掉（iOS 尤其如此），
+     切回来不会自己恢复 —— 结果就是休息到一半屏幕自己黑了。
+     所以每次回到前台，只要计时还在跑，就重新申请一次，并立刻补画一遍
+     （补画还会顺手处理「计时其实早就结束了」：paint() 里到点就 finish()）。*/
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && tick) { keepAwake(true); paint(); }
+  });
   return { start: start, stop: stop, add: add, keepAwake: keepAwake };
 })();
 
@@ -750,13 +831,16 @@ function viewTrain() {
   h += '<button class="qb" data-act="pickDay" style="height:34px;position:absolute;right:0;top:50%;transform:translateY(-50%)">换一天</button>';
   h += "</div></div></div></div>";
 
-  /* 热身（未开始时折叠） */
+  /* 热身（未开始时折叠）：每次必做的 + 当天专项 + 递增热身组 */
   if (!isToday) {
+    var wItems = warmArr("common").concat(warmArr(day.id), warmArr("ramp"));
     h += '<div class="sec"><div class="sec-t">热身 <span class="r" data-act="togWarm" id="warmTog">展开</span></div>';
-    h += '<div class="card" id="warmCard" hidden>' + D.plan.warmup.map(function (w, i) {
-      var p = w.split("|");
-      return '<div class="row"><div class="rl"><div class="rt">' + esc(p[0]) + '</div><div class="rs">' + esc(p[1] || "") + "</div></div></div>";
-    }).join("") + "</div></div>";
+    h += '<div class="card" id="warmCard" hidden>' + wItems.map(function (w) { return warmRowHTML(w); }).join("") + "</div></div>";
+    var wAfter = warmArr("after");
+    if (wAfter.length) {
+      h += '<div class="sec"><div class="sec-t">训练后拉伸 <span class="r" data-act="togWarm2" id="warmTog2">展开</span></div>';
+      h += '<div class="card" id="warmCard2" hidden>' + wAfter.map(function (w) { return warmRowHTML(w); }).join("") + "</div></div>";
+    }
   } else {
     h += '<div class="sec"><div class="sec-t">热身 <span class="r">已跳过</span></div></div>';
   }
@@ -1070,7 +1154,66 @@ function viewDiet() {
   }
   h += '<div class="sec"><div class="sec-t">最近 7 天</div><div class="card">' + rows + "</div></div>";
 
+  h += dietPlanHTML();
+
   h += '<div class="foot">蛋白目标 ' + tp + "g 是按你 70kg 体重的 1.6–2.2 g/kg 区间取的中间值。<br>热量目标 = 每日总消耗 − 当天缺口，都在「设置」里改。</div>";
+  return h;
+}
+
+/* ---------------- 饮食计划（速查卡） ----------------
+   纯静态参考：早上照着买、在食堂照着点。
+   不参与任何计算，也不写存储 —— 要改计划就改下面两个数组。 */
+var DIET_PLAN = [
+  { t: "早餐", k: 620, p: 42, it: "希腊酸奶 120 g · 燕麦 65 g · 蓝莓干 20 g · 鸡蛋 3 个" },
+  { t: "午餐", k: 825, p: 48, it: "米饭 1.5 碗 · 番茄炒蛋 · 西兰花 · 去皮卤鸭腿 1 个<br>食堂的菜一律先过一遍热水再吃" },
+  { t: "训练前后", k: 215, p: 25, it: "香蕉 1 根 · 蛋白粉 1 勺" },
+  { t: "晚餐", k: 460, p: 32, it: "燕麦 65 g（或全麦面包 100 g）· 花生酱 15 g · 蛋白粉 1 勺" }
+];
+var DIET_BUY = [
+  { n: "希腊酸奶 120 g 杯装", c: "¥3.5", s: "冷藏。放阴凉处，一杯一开，开封当天喝完" },
+  { n: "蓝莓干 20 g", c: "¥0.8", s: "常温。每天只倒 20 g 出来，袋子收起来" },
+  { n: "真空卤鸭腿 1 袋", c: "¥3.5", s: "常温。吃前热水冲一下，皮撕掉" },
+  { n: "燕麦 100 g", c: "¥1.3", s: "常温，放一学期不怕坏" },
+  { n: "苹果 1 个", c: "¥1.5", s: "常温，补纤维（这块最容易缺）" }
+];
+
+function dietPlanHTML() {
+  var h = '<div class="sec"><div class="sec-t">每天怎么吃</div>';
+  h += '<div class="card"><div class="row" data-act="dietPlan">' +
+    '<div class="rl"><div class="rt">饮食计划 · 照着吃、照着买</div>' +
+    '<div class="rs">≈2120 kcal · 147 g 蛋白 · 68 g 脂肪</div></div>' +
+    '<span class="chev">' + (U.dietPlanOpen ? "⌄" : "›") + "</span></div>";
+
+  if (U.dietPlanOpen) {
+    h += '<div class="card-pad" style="border-top:1px solid var(--line)">';
+    DIET_PLAN.forEach(function (m) {
+      h += '<div class="dp-meal"><div class="dp-hd"><b>' + m.t + "</b>" +
+        "<s>" + m.k + " kcal · " + m.p + " g</s></div>" +
+        '<div class="dp-it">' + m.it + "</div></div>";
+    });
+    h += '<div class="dp-sum">合计 ≈2120 kcal · 147 g 蛋白 · 68 g 脂肪。<br>' +
+      "蛋白 147 g ≈ 你 70 kg 的 2.1 g/kg，在区间里。脂肪 68 g 已经在底线之上，别再往下压。</div>";
+    h += "</div>";
+
+    h += '<div class="card-pad" style="border-top:1px solid var(--line)">';
+    h += '<div class="dp-t">每天买什么 · 不到 12 元</div>';
+    DIET_BUY.forEach(function (b) {
+      h += '<div class="dp-buy"><b>' + b.n + "</b><s>" + b.c + "</s>" +
+        '<div class="dp-s">' + b.s + "</div></div>";
+    });
+    h += '<div class="dp-sum">合计 ¥10.6 / 天（¥12 的上限内）</div>';
+    h += "</div>";
+
+    h += '<div class="card-pad" style="border-top:1px solid var(--line)">';
+    h += '<div class="dp-t">几条不能忘的</div>';
+    h += '<div class="dp-s">· 食堂的菜<b>过一遍热水</b>再吃 —— 最省事、收益最大的一步，一天省 200–300 kcal<br>' +
+      "· 卤鸭腿吃前热水冲一下，皮撕掉<br>" +
+      "· 蓝莓干一袋 500 g 有 1350 kcal，别整袋抓着吃<br>" +
+      "· 脂肪别低于 55 g —— 它管睾酮，低了恢复和状态都会掉<br>" +
+      "· 酸奶胀包、开盖有异味就扔；只是变酸、出水还能吃</div>";
+    h += "</div>";
+  }
+  h += "</div></div>";
   return h;
 }
 
@@ -1210,11 +1353,13 @@ function viewPlan() {
     });
     h += "</div></div>";
   });
-  h += '<div class="sec"><div class="sec-t">热身</div><div class="card">' + D.plan.warmup.map(function (w) {
-    var p = w.split("|");
-    return '<div class="row"><div class="rl"><div class="rt" style="font-size:16px">' + esc(p[0]) + '</div><div class="rs">' + esc(p[1] || "") + "</div></div></div>";
-  }).join("") + "</div>";
-  h += '<div class="pad" style="margin-top:10px"><button class="btn sec sm" data-act="editWarm">编辑热身</button></div></div>';
+  WARM_GROUPS.forEach(function (g) {
+    var items = warmArr(g[0]);
+    if (!items.length) return;
+    h += '<div class="sec"><div class="sec-t">' + esc(g[1]) + '</div><div class="card">' +
+      items.map(function (w) { return warmRowHTML(w, true); }).join("") + "</div></div>";
+  });
+  h += '<div class="sec"><div class="pad"><button class="btn sec sm" data-act="editWarm">编辑热身</button></div></div>';
   h += '<div class="foot">计划改动会自动保存。</div>';
   return h;
 }
@@ -1239,6 +1384,7 @@ document.addEventListener("click", function (e) {
 
   switch (act) {
     case "togWarm": $("#warmCard").hidden = !$("#warmCard").hidden; $("#warmTog").textContent = $("#warmCard").hidden ? "展开" : "收起"; break;
+    case "togWarm2": $("#warmCard2").hidden = !$("#warmCard2").hidden; $("#warmTog2").textContent = $("#warmCard2").hidden ? "展开" : "收起"; break;
     case "start":
       ensureLog(ds(), todayDayId()); save("logs"); render();
       toast("开始训练，加油 💪"); break;
@@ -1269,7 +1415,10 @@ document.addEventListener("click", function (e) {
     case "delPhoto": delPhoto(t.getAttribute("data-id")); break;
     case "editP": nutriSheet(t.getAttribute("data-d") || ds(), "p"); break;
     case "editK": nutriSheet(ds(), "k"); break;
-    case "mealSheet": mealSheet(ds()); break;
+    /* 每次重新打开「记一顿」都从普通模式开始 —— 免得上次开着「管理常吃」，
+       这次一进来点啥都进编辑页，莫名其妙。 */
+    case "mealSheet": U.foodMg = false; mealSheet(ds()); break;
+    case "dietPlan": U.dietPlanOpen = !U.dietPlanOpen; render(); break;
     case "mealView": mealViewSheet(t.getAttribute("data-id")); break;
     case "addP": addNutri("p", +t.getAttribute("data-v")); break;
     case "addK": addNutri("k", +t.getAttribute("data-v")); break;
@@ -1359,7 +1508,10 @@ function bumpWeight(eid, delta) {
   var s = c.arr[c.si];
   var w = num(s.w) + delta;
   if (w < 0) w = 0;
-  s.w = w ? fmt(w, 2).replace(/\.?0+$/, "") : "";
+  /* 不要在这里再 .replace(/\.?0+$/, "") 去尾零 —— fmt 用的是 toString()，
+     本来就不会有「10.00」这种尾巴，那个正则会去删有效数字：
+     10 会变成 1、20 变成 2、100 变成 1。这是以前留下的坑。 */
+  s.w = w ? fmt(w, 2) : "";
   save("logs");
   var inp = document.querySelector('[data-in="w"][data-ex="' + eid + '"][data-si="' + c.si + '"]');
   if (inp) inp.value = s.w;
@@ -1381,9 +1533,15 @@ function copyPrev(eid) {
   var c = curSet(eid); if (!c.arr) return;
   if (c.si === 0) { toast("这是第一组"); return; }
   var prev = c.arr[c.si - 1];
-  c.arr[c.si].w = prev.w; c.arr[c.si].r = prev.r; c.arr[c.si].rir = prev.rir;
-  c.arr[c.si].d = !!(prev.w || prev.r);
+  var tgt = c.arr[c.si];
+  var wasDone = !!tgt.d;
+  tgt.w = prev.w; tgt.r = prev.r; tgt.rir = prev.rir;
+  tgt.d = !!(prev.w || prev.r);
   save("logs"); render();
+  /* 复制完这一组就等于「这组做完了」，跟手输数字、点 ✓ 是同一条路，
+     所以照样要查纪录 + 起休息倒计时。以前漏了这两步，复制完一直不进计时。 */
+  if (!wasDone && tgt.d) { checkPR(eid, c.si); Rest.start(c.ex.rest, c.ex.n); }
+  toast("第 " + (c.si + 1) + " 组 → " + (tgt.w || "空") + " × " + (tgt.r || "—"));
 }
 
 /* 检查是否破纪录（和「历史最好」以及「今天前面几组」比） */
@@ -1579,21 +1737,27 @@ function exEditorSheet(eid, dayId) {
 }
 
 function warmEditorSheet() {
+  if (!U.warmKey) U.warmKey = "common";
   openSheet("编辑热身", warmEditorHTML(), null, "关闭");
   sheetRefresh = function () { return warmEditorHTML(); };
   $("#sheetBody").onclick = function (e) {
     var t = e.target.closest("[data-act]"); if (!t) return;
     var a = t.getAttribute("data-act");
+    if (a === "warmTab") { U.warmKey = t.getAttribute("data-k"); refreshSheet(); return; }
     if (a === "addWarm") { warmItemSheet(-1); return; }
     var i = parseInt(t.getAttribute("data-i"), 10);
     if (a === "edWarm") { warmItemSheet(i); return; }
-    if (a === "rmWarm") { D.plan.warmup.splice(i, 1); save("plan"); refreshSheet(); toast("已删除"); }
+    if (a === "rmWarm") { warmEnsure(U.warmKey).splice(i, 1); save("plan"); refreshSheet(); toast("已删除"); }
   };
 }
 function warmEditorHTML() {
-  var h = '<div class="card">';
-  if (!D.plan.warmup.length) h += '<div class="row"><div class="rl"><div class="rs">还没有热身项</div></div></div>';
-  D.plan.warmup.forEach(function (w, i) {
+  var h = '<div class="seg" style="margin-bottom:12px">' + WARM_GROUPS.map(function (g) {
+    return '<button data-act="warmTab" data-k="' + g[0] + '" class="' + (U.warmKey === g[0] ? "on" : "") + '">' + esc(g[2]) + "</button>";
+  }).join("") + "</div>";
+  var arr = warmArr(U.warmKey);
+  h += '<div class="card">';
+  if (!arr.length) h += '<div class="row"><div class="rl"><div class="rs">这一组还没有热身项</div></div></div>';
+  arr.forEach(function (w, i) {
     var p = w.split("|");
     h += '<div class="row">' +
       '<div class="rl" data-act="edWarm" data-i="' + i + '"><div class="rt" style="font-size:16px">' + esc(p[0]) + "</div>" +
@@ -1602,12 +1766,13 @@ function warmEditorHTML() {
   });
   h += "</div>";
   h += '<div class="pad" style="margin-top:14px"><button class="btn sec sm" data-act="addWarm">+ 添加热身项</button></div>';
-  h += '<div class="note">点热身项可以改名字和说明。</div>';
+  h += '<div class="note">点热身项可以改名字和说明。上面切换「每次 / 胸 / 背 / 肩 / 腿 / 递增 / 训练后」，就是训练页里那几组。</div>';
   return h;
 }
 function warmItemSheet(i) {
   var isNew = i < 0;
-  var p = (isNew ? "" : D.plan.warmup[i] || "").split("|");
+  var arr = warmEnsure(U.warmKey);
+  var p = (isNew ? "" : arr[i] || "").split("|");
   var h = '<div class="card">' +
     '<div class="fld"><label>名称</label><input type="text" id="wmN" value="' + esc(p[0] || "") + '" placeholder="比如：靠墙天使"></div>' +
     '<div class="fld"><label>说明</label><input type="text" id="wmS" value="' + esc(p[1] || "") + '" placeholder="比如：2 × 10"></div>' +
@@ -1616,7 +1781,8 @@ function warmItemSheet(i) {
     var nm = $("#wmN").value.trim();
     if (!nm) { toast("名字不能空着"); return "keep"; }
     var line = nm + "|" + $("#wmS").value.trim();
-    if (isNew) D.plan.warmup.push(line); else D.plan.warmup[i] = line;
+    var a2 = warmEnsure(U.warmKey);
+    if (isNew) a2.push(line); else a2[i] = line;
     save("plan");
     toast("已保存");
     warmEditorSheet();
@@ -1777,12 +1943,29 @@ function mealSheet(date) {
   sheetRefresh = function () { return mealSheetHTML(dr); };
 
   $("#sheetBody").onclick = function (e) {
-    var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mph],[data-muse],[data-mfnew],[data-mfe]");
+    var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mph],[data-muse],[data-mfnew],[data-mfe],[data-fme],[data-fmg]");
     if (!t) return;
 
     if (t.hasAttribute("data-ms")) { dr.meal = t.getAttribute("data-ms"); refreshSheet(); return; }
 
     if (t.hasAttribute("data-mph")) { mealPickPhoto(dr, t.getAttribute("data-mph")); return; }
+
+    if (t.hasAttribute("data-fmg")) { U.foodMg = !U.foodMg; refreshSheet(); return; }
+
+    if (t.hasAttribute("data-fme")) {          /* 管理模式：点常吃 → 改它 / 删它 */
+      var fid2 = t.getAttribute("data-fme");
+      foodEditSheet(fid2, function (f2) {
+        if (!f2) {                               /* 删了：托盘里这一样也拿掉，不然合计还挂着它 */
+          dr.items = dr.items.filter(function (it) { return it.fid !== fid2; });
+        } else {                                 /* 改了：托盘里那份数也跟着更新 */
+          dr.items.forEach(function (it) {
+            if (it.fid === fid2) { it.n = f2.n; it.u = f2.u; it.k = num(f2.k); it.p = num(f2.p); }
+          });
+        }
+        mealSheet(dr.date);
+      });
+      return;
+    }
 
     if (t.hasAttribute("data-mfe")) {          /* 点菜名 → 改这份食物的数字 */
       var it3 = dr.items[+t.getAttribute("data-mfe")];
@@ -1881,10 +2064,18 @@ function mealSheetHTML(dr) {
     h += "</div></div>";
   }
 
-  h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">常吃</div><div class="food-grid">';
+  h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">常吃</div>';
+  if (U.foodMg) {
+    h += '<div class="note" style="margin:0 0 10px">管理模式：点<b>任意一个食物</b>进去，可以改数字，也可以删掉它。</div>';
+  }
+  h += '<div class="food-grid">';
   foodsRecent().forEach(function (f) { h += foodChipHTML(f, mealHas(dr, f.id)); });
   h += "</div>";
-  h += '<div class="pad" style="margin-top:10px"><button class="btn sec sm" data-mfnew="1">+ 新增常吃</button></div></div>';
+  h += '<div class="pad" style="margin-top:10px;display:flex;gap:8px">' +
+    '<button class="btn sec sm" data-mfnew="1">+ 新增常吃</button>' +
+    (D.foods.length ? '<button class="btn ' + (U.foodMg ? "" : "sec ") +
+      'sm" data-fmg="1">' + (U.foodMg ? "完成" : "管理常吃") + "</button>" : "") +
+    "</div></div>";
 
   h += '<div class="sec" style="margin:16px 0 0"><div class="sec-t">全部</div>';
   FOOD_CATS.forEach(function (c) {
@@ -1897,16 +2088,24 @@ function mealSheetHTML(dr) {
   });
   h += "</div>";
 
-  h += '<div class="note">点一下食物＝一份。吃了一半按 −，吃了两碗按 ＋。<br>' +
-    "点「这一顿」里的<b>菜名</b>能改它一份是多少热量——改的是「常吃」里的数字，以后每次都按新的算。</div>";
+  if (!U.foodMg) {
+    h += '<div class="note">点一下食物＝一份。吃了一半按 −，吃了两碗按 ＋。<br>' +
+      "点「这一顿」里的<b>菜名</b>能改它一份是多少热量——改的是「常吃」里的数字，以后每次都按新的算。<br>" +
+      "想去掉某个常吃 → 点上面的<b>「管理常吃」</b>。</div>";
+  }
   h += '<div class="meal-total">本顿合计 <b>' + tot.k + "</b> kcal · <b>" + tot.p + "</b> g 蛋白</div>";
 
   return h;
 }
 
+/* 「管理常吃」模式下，chip 不再往这一顿里加东西，改成点进编辑页（那里有删除）。
+   两种模式下用的是不同的属性名，所以不会串。 */
 function foodChipHTML(f, on) {
-  return '<button class="food' + (on ? " on" : "") + '" data-mf="' + f.id + '">' + esc(f.n) +
-    "<s>" + Math.round(num(f.k)) + "</s></button>";
+  var mg = U.foodMg;
+  return '<button class="food' + (on ? " on" : "") + (mg ? " mg" : "") + '"' +
+    (mg ? ' data-fme="' + f.id + '"' : ' data-mf="' + f.id + '"') + ">" +
+    (mg ? '<i class="food-x">✕</i>' : "") +
+    esc(f.n) + "<s>" + Math.round(num(f.k)) + "</s></button>";
 }
 
 /* ---------- AI 提示条 ---------- */
