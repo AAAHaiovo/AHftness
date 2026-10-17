@@ -780,3 +780,11 @@ h1,h2,h3,h4,p{margin:0}
 .dp-buy s{text-decoration:none; font-size:13px; font-weight:650; color:var(--blue); margin-left:auto; font-variant-numeric:tabular-nums}
 .dp-s{flex-basis:100%; font-size:12.5px; color:var(--tx3); line-height:1.7}
 .dp-s b{color:var(--tx2); font-weight:650}
+
+/* 饮食计划卡顶部的「今天练 / 今天休息 · 目标多少 kcal」 */
+.dp-day{
+  font-size:13.5px; color:var(--tx2); line-height:1.7;
+  padding:0 0 11px; margin-bottom:2px; border-bottom:1px solid var(--line);
+}
+.dp-day > b{font-size:15px; font-weight:700; color:var(--tx)}
+.dp-day .dp-s{margin-top:5px}

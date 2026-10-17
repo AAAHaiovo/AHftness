@@ -104,7 +104,7 @@ function EX(id, n, mg, s, r, c, b, rest) { return { id: id, n: n, mg: mg, s: s, 
 var DEFAULT_PLAN = {
   /* 计划换代号。手机上已经存了旧计划时，靠它决定要不要用新版覆盖。
      只改结构不改这个号，老用户永远看不到新计划。 */
-  ver: 3,
+  ver: 4,
   /* 热身分五组：common = 每次必做（治体态）；d1–d4 = 当天专项（练哪就热哪）；
      ramp = 递增热身组（正式组之前的轻重量组）；after = 训练后静态拉伸。
      静态拉伸原来排在训练前 —— 会轻微掉力量，2026-10-16 挪到训练后了。 */
@@ -138,7 +138,8 @@ var DEFAULT_PLAN = {
       "臀桥|2 × 15　先夹臀再顶",
       "蚌式|2 × 15 / 侧　臀中肌，防膝盖内扣",
       "靠墙踝背屈|每侧 10 次",
-      "空杆深蹲 + 空杆 RDL|2 × 8 / 2 × 10　过一遍动作模式"
+      "空杆深蹲 + 空杆 RDL|2 × 8 / 2 × 10　过一遍动作模式",
+      "弹力带肩外旋|2 × 15 / 侧　这天后面还有实力推，肩袖要先热开"
     ],
     ramp: [
       "递增热身组|空杆/最轻 ×10 → 50% ×8 → 70% ×5 → 85% ×2 → 歇 2 分钟开练。只做当天第一个动作"
@@ -175,7 +176,7 @@ var DEFAULT_PLAN = {
     },
     {
       id: "d3", tab: "DAY 3A", title: "肩 + 腹部", short: "肩",
-      hint: "和「DAY 3B · 腿 + 臀」轮流练：这套练完，下次自动轮到腿。",
+      hint: "三天里的最后一天。练完这套<b>明天休息</b>，休息完从胸重新开始。",
       ex: [
         EX("e12", "哑铃侧平举", "肩", 4, "12–15", "倒水式 · <b>不过肩高</b> · 沉肩 · 用肘尖够天花板", "常规呼吸", 60),
         EX("e13", "面拉", "肩", 4, "15–20", "用<b>长绳</b> · 绳索<b>额头高</b> · 肘与肩同高 · <b>先拉开再外旋</b> · 停 1 秒", "常规呼吸", 60),
@@ -187,16 +188,29 @@ var DEFAULT_PLAN = {
       ]
     },
     {
-      id: "d4", tab: "DAY 3B", title: "腿 + 臀", short: "腿",
-      hint: "和「DAY 3A · 肩 + 腹部」轮流练。深蹲别放第一个，前面先热身腿。",
+      id: "d4", tab: "DAY 3B", title: "肩 + 腿 + 臀", short: "腿",
+      hint: "和「DAY 3A · 肩 + 腹部」隔一轮轮着练。练完这套<b>明天休息</b>，休息完从胸重新开始。<br><b>肩在前、腿和臀在后</b> —— 肩练累了不妨碍腿蹬，反过来腿练到发抖再托举就很危险。",
       ex: [
+        /* 肩的三个用新 id（e23–e25），不复用 d3 的 e12/e13/e15。
+           findEx() 全计划找第一个同 id 的动作，两天共用一个 id 会让
+           「那天几组」读到另一天的定义 —— 所以宁可拆成两套，各记各的历史。
+           顺序跟 DAY 3A 保持一致：侧平举 → 面拉 → 反向蝴蝶机 → 实力推。
+           四个都要有 —— DAY 3A 是四个，这里是同一套肩，不能少一个。 */
+        EX("e23", "哑铃侧平举", "肩", 4, "12–15", "倒水式 · <b>不过肩高</b> · 沉肩 · 用肘尖够天花板", "常规呼吸", 60),
+        EX("e24", "面拉", "肩", 4, "15–20", "用<b>长绳</b> · 绳索<b>额头高</b> · 肘与肩同高 · <b>先拉开再外旋</b> · 停 1 秒", "常规呼吸", 60),
+        EX("e26", "反向蝴蝶机", "肩", 3, "12–15", "胸贴垫 · <b>别耸肩</b> · 停 1 秒", "常规呼吸", 60),
+        EX("e25", "实力推", "肩", 3, "6–8", "前臂垂直 · <b>核心收紧不许后仰</b>", "瓦氏呼吸", 150),
         EX("e16", "杠铃臀推", "臀", 3, "12", "顶点<b>夹臀 2 秒</b> · 别顶过头", "常规呼吸", 90),
         EX("e17", "保加利亚分腿蹲", "腿", 3, "10/侧", "<b>左腿先做</b> · 躯干略前倾（偏臀）", "常规呼吸", 90),
         EX("e18", "罗马尼亚硬拉", "腿", 3, "10", "<b>双正握 + 助力带</b> · 膝角不变 · 髋往后推", "瓦氏呼吸", 150),
         EX("e19", "全幅度深蹲", "腿", 3, "8", "<b>高杠</b> · 大腿低于水平", "瓦氏呼吸", 180)
       ]
     }
-  ]
+  ],
+  /* 轮转顺序。这里同时管「练哪天」和「哪天休息」——
+     days 只放训练日，「休息」不是一天的动作表，所以单独写成这个序列。
+     胸 → 背 → 肩+腹 → 休息 → 胸 → 背 → 肩+腿+臀 → 休息 → 循环（8 天一轮） */
+  cycle: ["d1", "d2", "d3", "rest", "d1", "d2", "d4", "rest"]
 };
 
 /* 热身分组。第三个是弹层里分段控件用的短名（七个按钮挤不下长名字）。 */
@@ -205,7 +219,7 @@ var WARM_GROUPS = [
   ["d1", "热身 · DAY 1 胸+三头", "胸"],
   ["d2", "热身 · DAY 2 背+二头", "背"],
   ["d3", "热身 · DAY 3A 肩+腹", "肩"],
-  ["d4", "热身 · DAY 3B 腿+臀", "腿"],
+  ["d4", "热身 · DAY 3B 肩+腿+臀", "腿"],
   ["ramp", "热身 · 递增热身组", "递增"],
   ["after", "训练后拉伸", "训练后"]
 ];
@@ -412,15 +426,40 @@ function lastLogDate(before) {
   for (var i = ks.length - 1; i >= 0; i--) if (!before || ks[i] < before) return ks[i];
   return null;
 }
-/* 今天该练哪天：今天有记录就按记录；否则按上次顺序往后推 */
+/* 轮转序列。老计划里没有 cycle 这个字段，退回「一天接一天、没有休息」的老算法，
+   免得读旧数据时炸掉。 */
+function planCycle() {
+  var c = D.plan && D.plan.cycle;
+  if (c && c.length) return c;
+  return D.plan.days.map(function (d) { return d.id; });
+}
+/* 今天停在循环的第几格。
+   今天有记录就按记录；否则拿上次训练在循环里的位置，往后推「隔了几天」。
+   关键：推的是日历天数，不是「练了几次」—— 因为休息日不产生记录，
+   按次数推的话第二天会卡在休息这一格出不去。
+   休息日要用这个下标算「下一次练哪天」—— 循环里有两个「休息」，
+   不能拿 indexOf("rest") 去猜是哪一格。 */
+function todayCycleIndex() {
+  var t = ds();
+  var cyc = planCycle();
+  if (!cyc.length) return 0;
+  if (D.logs[t] && D.logs[t].dayId) {
+    var i0 = cyc.indexOf(D.logs[t].dayId);
+    return i0 < 0 ? 0 : i0;
+  }
+  var prev = lastLogDate(t);
+  if (!prev) return 0;
+  var pos = cyc.indexOf(D.logs[prev].dayId);
+  if (pos < 0) return 0;             /* 上次那天不在循环里（换过计划/手选过）→ 从头上算 */
+  var gap = daysBetween(prev, t);
+  if (gap < 1) gap = 1;
+  return (pos + gap) % cyc.length;
+}
+/* 今天该练哪天（或「休息」） */
 function todayDayId() {
   var t = ds();
   if (D.logs[t] && D.logs[t].dayId) return D.logs[t].dayId;
-  var prev = lastLogDate(t);
-  if (!prev) return D.plan.days[0].id;
-  var pd = D.logs[prev].dayId, idx = 0;
-  D.plan.days.forEach(function (d, i) { if (d.id === pd) idx = i; });
-  return D.plan.days[(idx + 1) % D.plan.days.length].id;
+  return planCycle()[todayCycleIndex()];
 }
 /* 该动作上一次的记录 */
 function lastRecord(eid, beforeDate) {
@@ -497,11 +536,23 @@ function mgChipsHTML(list) {
   }).join("");
 }
 
-/* 今天算训练日还是休息日：有训练记录就算训练日；用户手动切过就听用户的 */
+/* 某一天算训练日还是休息日。
+   1) 用户自己切过 → 听用户的（这是唯一能覆盖自动判断的口子）
+   2) 那天有训练记录 → 训练日
+   3) 就是今天 → 直接问循环。所以早上还没点「开始」的时候，
+      饮食页就已经按「今天练还是今天休」给目标了，
+      不会出现「今天要练、饮食页却按休息日 −500 算」这种对不上的情况。
+   4) 其它（过去某天、没记录）→ 当休息日 */
 function dayMode(date) {
   var n = D.nutri[date];
   if (n && (n.mode === "train" || n.mode === "rest")) return n.mode;
-  return D.logs[date] ? "train" : "rest";
+  if (D.logs[date]) return "train";
+  if (date === ds()) {
+    var did = todayDayId();
+    if (did === "rest") return "rest";
+    if (findDay(did)) return "train";
+  }
+  return "rest";
 }
 /* 当天摄入目标 = 每日总消耗 − 当天缺口 */
 function kcalTargetFor(date) {
@@ -522,7 +573,12 @@ function cueChips(s) {
 /* ---------- 训练记录 ---------- */
 function ensureLog(date, dayId) {
   if (!D.logs[date]) {
-    D.logs[date] = { dayId: dayId || todayDayId(), start: Date.now(), end: null, ex: {}, note: "" };
+    /* 「休息」不是一天的动作表，绝不能当成训练记录存下来 ——
+       否则日历里会出现一条显示成 "rest" 的训练。真从休息日误触进来，
+       退到循环里的第一个训练日。 */
+    var id = dayId || todayDayId();
+    if (id === "rest") id = planCycle()[0];
+    D.logs[date] = { dayId: id, start: Date.now(), end: null, ex: {}, note: "" };
   }
   return D.logs[date];
 }
@@ -792,7 +848,7 @@ function setHeader() {
   var t = "", s = "";
   if (U.tab === "train") {
     var did = todayDayId(), d = findDay(did);
-    t = "训练"; s = d ? d.title : "";
+    t = "训练"; s = d ? d.title : (did === "rest" ? "休息日" : "");
   } else if (U.tab === "cal") { t = "日历"; s = ds(); }
   else if (U.tab === "diet") { t = "饮食"; s = ds(); }
   else if (U.tab === "body") { t = "身体"; s = "体重 " + latestWeightTxt(); }
@@ -809,6 +865,7 @@ function latestWeightTxt() {
 function viewTrain() {
   var today = ds();
   var did = todayDayId(), day = findDay(did);
+  if (did === "rest") return viewRest();
   if (!day) return '<div class="empty"><div class="t">计划是空的</div><div class="d">去「计划」页加几个动作</div></div>';
 
   var h = "";
@@ -870,6 +927,47 @@ function viewTrain() {
     else h += '<button class="btn" data-act="end">结束今天的训练</button>';
     h += "</div>";
   }
+  return h;
+}
+
+/* ---------------- 休息日 ----------------
+   循环轮到「休息」这一格时显示。休息日不写任何记录，
+   完全靠 todayDayId() 按日历天数推出来。 */
+function viewRest() {
+  var today = ds();
+  var hh = new Date().getHours();
+  var greet = hh < 11 ? "早上好" : hh < 14 ? "中午好" : hh < 18 ? "下午好" : "晚上好";
+  var prev = lastLogDate(today);
+  var pd = prev ? findDay(D.logs[prev].dayId) : null;
+  var cyc = planCycle();
+  var nextDay = findDay(cyc[(todayCycleIndex() + 1) % cyc.length]);
+
+  var h = '<div class="pad" style="padding-bottom:12px">';
+  h += '<div class="card"><div class="card-pad" style="padding:26px var(--gap);text-align:center">';
+  h += '<div style="font-size:13px;color:var(--tx2);margin-bottom:3px">' + greet + " · " +
+    (parseD(today).getMonth() + 1) + "月" + parseD(today).getDate() + "日</div>";
+  h += '<div style="font-size:26px;font-weight:700;letter-spacing:-.6px">今天休息</div>';
+  h += '<div style="font-size:13.5px;color:var(--tx2);margin-top:8px;line-height:1.65">' +
+    "练三天、休一天 —— 今天这一格不是偷懒，<br>肌肉是今天长出来的。</div>";
+  if (pd) h += '<div style="font-size:12.5px;color:var(--tx3);margin-top:14px">上次练的是「' + esc(pd.title) + "」</div>";
+  if (nextDay) h += '<div style="font-size:12.5px;color:var(--tx3);margin-top:4px">下一次练：' + esc(nextDay.title) + "</div>";
+  h += "</div></div></div>";
+
+  h += '<div class="sec"><div class="sec-t">今天可以做</div><div class="card">';
+  [
+    ["走路 20–30 分钟", "散步就行，别当成有氧训练去做"],
+    ["把练后拉伸再来一遍", "门框胸大肌、上斜方、肩胛提肌 —— 计划页能翻到"],
+    ["睡够 7–8 小时", "这一条比上面两条加起来都重要"],
+    ["蛋白照样吃够", "休息日也在修复，别今天就不吃了"]
+  ].forEach(function (x) {
+    h += '<div class="row" style="padding:11px 16px"><div class="rl">' +
+      '<div class="rt" style="font-size:15px">' + x[0] + "</div>" +
+      '<div class="rs">' + x[1] + "</div></div></div>";
+  });
+  h += "</div></div>";
+
+  h += '<div class="pad"><button class="btn sec" data-act="pickDay">今天还是想练</button></div>';
+  h += '<div class="foot">循环：胸 → 背 → 肩+腹 → 休息 → 胸 → 背 → 肩+腿+臀 → 休息</div>';
   return h;
 }
 
@@ -1177,15 +1275,50 @@ var DIET_BUY = [
   { n: "苹果 1 个", c: "¥1.5", s: "常温，补纤维（这块最容易缺）" }
 ];
 
+/* 这张表是固定的（2120 kcal），可今天的目标是跟着「练 / 休」变的
+   （训练日 2600−200=2400，休息日 2600−500=2100）。两个数字各说各的会很误导，
+   所以把差额直接算出来写在卡片头上：差多少、怎么补、补什么。 */
+function dietPlanDayHTML() {
+  var today = ds();
+  var mode = dayMode(today);
+  var tk = kcalTargetFor(today);
+  var total = 0;
+  DIET_PLAN.forEach(function (m) { total += m.k; });
+  var diff = tk - total;
+  var note;
+  if (Math.abs(diff) <= 60) {
+    note = "这张表合计 " + total + " kcal，跟今天的目标正好对上，热量不用再调。";
+  } else if (diff > 0) {
+    note = "这张表合计 " + total + " kcal，比目标少 <b>" + Math.round(diff) + " kcal</b> —— " +
+      (mode === "train"
+        ? "训练前后那顿再加 <b>1 根香蕉 + 半勺蛋白粉</b>，正好补上。"
+        : "加 <b>1 根香蕉</b>就够了。");
+  } else {
+    note = "这张表合计 " + total + " kcal，比目标多 <b>" + Math.round(-diff) + " kcal</b> —— " +
+      "晚餐燕麦少 20 g，或者花生酱减 5 g。";
+  }
+  var protein = 0;
+  DIET_PLAN.forEach(function (m) { protein += m.p; });
+  return '<div class="dp-day"><b>' + (mode === "train" ? "今天练" : "今天休息") + "</b>" +
+    ' · 目标 <b>' + tk + " kcal</b> · 蛋白 " + protein + " g" +
+    '<div class="dp-s">' + note + "</div></div>";
+}
+
 function dietPlanHTML() {
+  var totalK = 0;
+  DIET_PLAN.forEach(function (m) { totalK += m.k; });
+  var todayTk = kcalTargetFor(ds());
+  var todayMode = dayMode(ds());
   var h = '<div class="sec"><div class="sec-t">每天怎么吃</div>';
   h += '<div class="card"><div class="row" data-act="dietPlan">' +
     '<div class="rl"><div class="rt">饮食计划 · 照着吃、照着买</div>' +
-    '<div class="rs">≈2120 kcal · 147 g 蛋白 · 68 g 脂肪</div></div>' +
+    '<div class="rs">' + (todayMode === "train" ? "今天练 " : "今天休息 ") + todayTk +
+    " kcal · 这张表 " + totalK + " kcal · 147 g 蛋白</div></div>" +
     '<span class="chev">' + (U.dietPlanOpen ? "⌄" : "›") + "</span></div>";
 
   if (U.dietPlanOpen) {
     h += '<div class="card-pad" style="border-top:1px solid var(--line)">';
+    h += dietPlanDayHTML();
     DIET_PLAN.forEach(function (m) {
       h += '<div class="dp-meal"><div class="dp-hd"><b>' + m.t + "</b>" +
         "<s>" + m.k + " kcal · " + m.p + " g</s></div>" +
@@ -1329,6 +1462,15 @@ function fillPhotos() {
 function viewPlan() {
   var h = "";
   h += '<div class="note" style="padding-bottom:14px">点某一天可以加动作、改组数次数、调顺序、删除。<br>点动作名字看要点和历史记录。</div>';
+  /* 把轮转顺序摆出来 —— 「休息」也是循环里的一格，不画出来就容易忘 */
+  h += '<div class="sec"><div class="sec-t">循环 · 练三天休一天</div><div class="card"><div class="card-pad">' +
+    '<div style="font-size:13.5px;color:var(--tx2);line-height:1.9">' +
+    planCycle().map(function (id) {
+      if (id === "rest") return '<b style="color:var(--green)">休息</b>';
+      var dd = findDay(id);
+      return dd ? esc(dd.short) : "?";
+    }).join('<span style="color:var(--tx3)"> → </span>') +
+    '</div></div></div></div>';
   D.plan.days.forEach(function (d) {
     var totalSets = d.ex.reduce(function (a, e) { return a + e.s; }, 0);
     h += '<div class="sec"><div class="sec-t">' + esc(d.tab) + "</div>";
@@ -2480,7 +2622,8 @@ function settingsSheet() {
   h += '<div class="note">蛋白建议 1.6–2.2 g/kg。你 70kg → 112–155g。<br>' +
     '总消耗 = 基础代谢 + 日常活动 + 训练。<br>' +
     '按现在的数：训练日吃 <b>' + Math.round(s.tdee - s.deficitTrain) + "</b> kcal，休息日吃 <b>" +
-    Math.round(s.tdee - s.deficitRest) + "</b> kcal。</div></div>";
+    Math.round(s.tdee - s.deficitRest) + "</b> kcal。<br>" +
+    "饮食页会自动挑：轮到你练的那天用训练日的数，休息那天用休息日的数。</div></div>";
 
   h += '<div class="sec"><div class="sec-t">数据</div><div class="card">';
   h += '<div class="row" data-act="export"><div class="rl"><div class="rt">导出备份</div><div class="rs">存成一个文件，换手机时用</div></div><span class="chev">›</span></div>';
