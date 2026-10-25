@@ -260,7 +260,11 @@ var DEFAULT_SETTINGS = {
   deficitTrain: 200,    // 训练日热量缺口
   deficitRest: 500,     // 休息日热量缺口
   weightTarget: 78,     // kg
-  defaultRest: 90       // 秒
+  defaultRest: 90,      // 秒
+  /* RIR（还能再做几次）那一列。默认关 —— 大部分人不用，
+     留着白占一列、每组还多一个要跳过的框。设置里能开回来。
+     已经填过的 RIR 数据不会丢，开了就还能看见。 */
+  showRir: false
 };
 /* 摄入目标不再固定填，改成按当天消耗倒推：消耗 − 缺口 */
 
@@ -331,11 +335,6 @@ var DEFAULT_FOODS = [
   F("chips", "薯片", "包", 300, 3, "snack")
 ];
 
-/* AI 认的是「像不像你自己拍过的那张」，不是菜名 —— 公开模型里没有番茄炒蛋这种类。
-   0.90 是「最低要求有多像」，0.03 是「必须比第二像的那顿再高出一截」。
-   两个数都是实测 + 保守取值：宁可不提示，也别乱提示。用一段时间后再调。 */
-var AI_MATCH = 0.90, AI_MARGIN = 0.03;
-
 /* ============================================================
    3. 状态
    ============================================================ */
@@ -347,7 +346,7 @@ var D = {                       // 数据（持久化）
   settings: null,
   photoMeta: [],                // [{id, date, pose}]
   foods: [],                    // 常吃清单 [{id,n,u,k,p,cat,last}]
-  meals: []                     // 每顿流水 [{id,date,meal,foods:[…],k,p,emb}]
+  meals: []                     // 每顿流水 [{id,date,meal,foods:[…],k,p}]
 };
 
 var U = {                       // 界面状态（不持久化）
@@ -473,6 +472,12 @@ function lastRecord(eid, beforeDate) {
     if (sets.length) return { date: d, sets: sets };
   }
   return null;
+}
+/* 上次第 i 组；上次没做到那么多组，就沿用上次最后一组。
+   灰字预填和「点 ✓ 直接记」都走这一条，保证格子写的是什么、点下去记的就是什么。 */
+function lastSetSrc(last, i) {
+  if (!last || !last.sets || !last.sets.length) return null;
+  return last.sets[i] || last.sets[last.sets.length - 1];
 }
 /* 历史最好 e1RM（Epley） */
 function bestE1RM(eid, excludeDate) {
@@ -908,6 +913,12 @@ function viewTrain() {
 
   if (!isToday) {
     h += '<div class="pad" style="padding-bottom:10px"><button class="btn" data-act="start">开始今天的训练</button></div>';
+  } else {
+    /* 一键预填。只填空格子，不会冲掉你刚输的东西；
+       填完照样要点每组的 ✓ 才算做完，所以不会「替你记」。
+       按钮下面那句是给第一次用的人看的 —— 灰字不是数据，别被它骗。 */
+    h += '<div class="pad" style="padding-bottom:6px"><button class="btn sec sm" data-act="fillDay">今天照上次填好</button>' +
+      '<div class="note" style="padding:8px 2px 0;text-align:center">格子里的浅灰字是上次的数，点 ✓ 才会真的记下来</div></div>';
   }
 
   day.ex.forEach(function (ex, i) {
@@ -979,6 +990,18 @@ function exCard(ex, n, active) {
   var allDone = sets.length && doneN === sets.length;
   var last = lastRecord(ex.id, today);
   var best = bestE1RM(ex.id, today);
+  /* RIR 列默认藏起来 —— 大部分人不用它，白占一列还不好按。
+     设置里能开回来。 */
+  var showRir = !!D.settings.showRir;
+
+  /* 灰字预填：空格子里用浅灰显示上次同一组的数。
+     它只是「提示」，不是真数据 —— 点 ✓ 才会写进记录，所以不会污染历史。
+     好处是你看得见该上多少，不用回忆；坏处是看灰字时别误以为已经记过了。 */
+  function ph(i, f) {
+    var src = lastSetSrc(last, i);
+    var v = src ? src[f] : "";
+    return (v === 0 || v) ? String(v) : "—";
+  }
 
   var h = '<div class="ex' + (allDone ? " done" : "") + '" data-ex="' + ex.id + '">';
   h += '<div class="ex-hd" data-act="exInfo" data-ex="' + ex.id + '">';
@@ -1014,17 +1037,18 @@ function exCard(ex, n, active) {
     h += "</div>";
   }
 
-  h += '<table class="sets"><thead><tr><th>组</th><th>重量 kg</th><th>次数</th><th>RIR</th></tr></thead><tbody>';
+  h += '<table class="sets"><thead><tr><th>组</th><th>重量 kg</th><th>次数</th>' +
+    (showRir ? "<th>RIR</th>" : "") + "</tr></thead><tbody>";
   for (var i = 0; i < ex.s; i++) {
     var s = sets[i] || { w: "", r: "", rir: "", d: false };
     h += "<tr>";
     h += '<td><button class="sn' + (s.d ? " on" : "") + '" data-act="tog" data-ex="' + ex.id + '" data-si="' + i + '">' + (s.d ? "✓" : i + 1) + "</button></td>";
     if (active) {
-      h += '<td><input class="cell' + (s.d ? " on" : "") + '" inputmode="decimal" placeholder="—" value="' + esc(s.w) + '" data-in="w" data-ex="' + ex.id + '" data-si="' + i + '"></td>';
-      h += '<td><input class="cell' + (s.d ? " on" : "") + '" inputmode="numeric" placeholder="—" value="' + esc(s.r) + '" data-in="r" data-ex="' + ex.id + '" data-si="' + i + '"></td>';
-      h += '<td><input class="cell rir' + (s.d ? " on" : "") + '" inputmode="numeric" placeholder="—" value="' + esc(s.rir) + '" data-in="rir" data-ex="' + ex.id + '" data-si="' + i + '"></td>';
+      h += '<td><input class="cell' + (s.d ? " on" : "") + '" inputmode="decimal" placeholder="' + esc(ph(i, "w")) + '" value="' + esc(s.w) + '" data-in="w" data-ex="' + ex.id + '" data-si="' + i + '"></td>';
+      h += '<td><input class="cell' + (s.d ? " on" : "") + '" inputmode="numeric" placeholder="' + esc(ph(i, "r")) + '" value="' + esc(s.r) + '" data-in="r" data-ex="' + ex.id + '" data-si="' + i + '"></td>';
+      if (showRir) h += '<td><input class="cell rir' + (s.d ? " on" : "") + '" inputmode="numeric" placeholder="' + esc(ph(i, "rir")) + '" value="' + esc(s.rir) + '" data-in="rir" data-ex="' + ex.id + '" data-si="' + i + '"></td>';
     } else {
-      h += '<td style="color:var(--tx3)">—</td><td style="color:var(--tx3)">—</td><td style="color:var(--tx3)">—</td>';
+      h += '<td style="color:var(--tx3)">—</td><td style="color:var(--tx3)">—</td>' + (showRir ? '<td style="color:var(--tx3)">—</td>' : "");
     }
     h += "</tr>";
   }
@@ -1217,9 +1241,9 @@ function viewDiet() {
     (left > 0 ? "还差 <b style='color:var(--blue)'>" + Math.round(left) + " g</b> 蛋白" : "<b style='color:var(--green)'>蛋白达标了</b>，保持") + "</div>";
   h += "</div></div></div>";
 
-  /* 记一顿：主路径。拍照（可选）→ AI 认「像不像你上次拍的」→ 点几样常吃的 */
+  /* 记一顿：点几样常吃的 → 自动算出这顿多少热量和蛋白 → 加进今天 */
   h += '<div class="sec" style="margin-top:14px"><div class="sec-t">这顿吃了什么</div>';
-  h += '<div class="pad" style="padding-bottom:8px"><button class="btn" data-act="mealSheet">拍照记一顿</button></div>';
+  h += '<div class="pad" style="padding-bottom:8px"><button class="btn" data-act="mealSheet">记一顿</button></div>';
   h += '<div class="card">' + mealRowsHTML(today) + "</div></div>";
 
   /* 快捷加 */
@@ -1542,6 +1566,7 @@ document.addEventListener("click", function (e) {
     case "exInfo": exInfoSheet(ex); break;
     case "bump": bumpWeight(ex, parseFloat(t.getAttribute("data-v"))); break;
     case "copyAll": copyAll(ex); break;
+    case "fillDay": fillDayFromLast(); break;
     case "copyPrev": copyPrev(ex); break;
     case "rest": Rest.start(findEx(ex).rest, findEx(ex).n); break;
     case "tog": toggleSet(ex, +si); break;
@@ -1630,9 +1655,11 @@ function toggleSet(eid, si) {
   var ex = findEx(eid); var arr = ensureSets(today, ex);
   var s = arr[si];
   s.d = !s.d;
+  /* 格子里是灰字、你什么都没打就点了 ✓ —— 那就把灰字那个数记下来。
+     以前这里取 last.sets[si]，上次没做到这一组就取了个空的，灰字有数、点下去却是空的。 */
   if (s.d && !s.r && !s.w) {
-    var last = lastRecord(eid, today);
-    if (last && last.sets[si]) { s.w = last.sets[si].w; s.r = last.sets[si].r; }
+    var src = lastSetSrc(lastRecord(eid, today), si);
+    if (src) { s.w = src.w; s.r = src.r; s.rir = src.rir; }
   }
   save("logs"); render();
   if (s.d) { Rest.start(ex.rest, ex.n); checkPR(eid, si); }
@@ -1665,11 +1692,40 @@ function copyAll(eid) {
   var last = lastRecord(eid, today);
   if (!last) { toast("没有历史记录"); return; }
   for (var i = 0; i < arr.length; i++) {
-    var src = last.sets[i] || last.sets[last.sets.length - 1];
+    var src = lastSetSrc(last, i);
     if (src) { arr[i].w = src.w; arr[i].r = src.r; arr[i].rir = src.rir; arr[i].d = !!(src.w || src.r); }
   }
   save("logs"); render();
   toast("已填入上次的数据，按实际改");
+}
+/* 「今天照上次填好」：把今天所有动作一次按上次填满。
+   跟「全部照上次」的区别：不动 d（不打勾），所以填完还是要一组一组点 ✓。
+   只填空格子 —— 已经填过的（自己打的、刚填的）一律不动，免得把刚输的冲掉。 */
+function fillDayFromLast() {
+  var today = ds();
+  var lg = D.logs[today];
+  if (!lg) { toast("先点「开始今天的训练」"); return; }
+  var day = findDay(lg.dayId);
+  if (!day) { toast("今天的计划找不到了，去「计划」页看看"); return; }
+
+  var n = 0, noHist = 0;
+  day.ex.forEach(function (ex) {
+    var arr = ensureSets(today, ex);
+    var last = lastRecord(ex.id, today);
+    if (!last) { noHist++; return; }
+    for (var i = 0; i < arr.length; i++) {
+      var s = arr[i];
+      if (s.w || s.r) continue;                       /* 已经有数：不动 */
+      var src = lastSetSrc(last, i);
+      if (!src) continue;
+      s.w = src.w; s.r = src.r; s.rir = src.rir;
+      n++;
+    }
+  });
+
+  if (!n) { toast("已经填好了，只改有变化的那几组"); return; }
+  save("logs"); render();
+  toast("填了 " + n + " 组" + (noHist ? "（" + noHist + " 个动作没有历史，空着）" : "") + "，只改有变化的那几组");
 }
 function copyPrev(eid) {
   var c = curSet(eid); if (!c.arr) return;
@@ -2021,15 +2077,13 @@ function addNutri(f, v) {
 }
 
 /* ============================================================
-   11b. 记一顿 —— 拍照 + 点选常吃
+   11b. 记一顿 —— 点选常吃，自动算热量
    ------------------------------------------------------------
-   照片不存（只在弹层开着的时候当预览，关掉就没了）。
-   存下来的只有两样：这一顿吃了什么，和一个约 1.4KB 的「指纹」。
+   点几样常吃的菜 → 每样按「一份」算好的 kcal / 蛋白加起来 →
+   一次累加进当天汇总。吃半份按 −，吃两碗按 ＋。
 
-   指纹是 MobileNet 倒数第二层的 1024 维输出（不是那 1000 个菜名 ——
-   公开模型里根本没有「番茄炒蛋」这种类）。它认不出菜名，但很擅长回答
-   「这张跟你上次拍的那张像不像」。所以第一次你手动告诉它这是什么，
-   下次它就能猜出来。越用越准。
+   （以前的「拍照让 AI 认这是哪道菜」已经去掉了：公开模型认不出中餐，
+     而且要多下 17.7MB。清单点选本身就够快。）
 
    不变量：D.nutri[date] 永远是当天汇总的唯一真相。D.meals 只是流水，
    绝不拿它反推 nutri。
@@ -2055,7 +2109,7 @@ function mealSlotNow() {
 }
 function mealDraft(date) {
   if (U.mealDraft && U.mealDraft.date === date) return U.mealDraft;
-  U.mealDraft = { date: date, meal: mealSlotNow(), items: [], photoUrl: "", emb: null, ai: null };
+  U.mealDraft = { date: date, meal: mealSlotNow(), items: [] };
   return U.mealDraft;
 }
 function mealTotal(dr) {
@@ -2071,10 +2125,6 @@ function mealNames(m) {
   var ns = m.foods.map(function (x) { return x.n; });
   return ns.length > 4 ? ns.slice(0, 4).join("、") + " 等 " + ns.length + " 样" : ns.join("、");
 }
-function dropPhoto(dr) {
-  if (dr.photoUrl) { try { URL.revokeObjectURL(dr.photoUrl); } catch (e) {} }
-  dr.photoUrl = ""; dr.emb = null; dr.ai = null;
-}
 
 /* ---------- 那一顿的弹层 ---------- */
 function mealSheet(date) {
@@ -2085,12 +2135,10 @@ function mealSheet(date) {
   sheetRefresh = function () { return mealSheetHTML(dr); };
 
   $("#sheetBody").onclick = function (e) {
-    var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mph],[data-muse],[data-mfnew],[data-mfe],[data-fme],[data-fmg]");
+    var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mfnew],[data-mfe],[data-fme],[data-fmg]");
     if (!t) return;
 
     if (t.hasAttribute("data-ms")) { dr.meal = t.getAttribute("data-ms"); refreshSheet(); return; }
-
-    if (t.hasAttribute("data-mph")) { mealPickPhoto(dr, t.getAttribute("data-mph")); return; }
 
     if (t.hasAttribute("data-fmg")) { U.foodMg = !U.foodMg; refreshSheet(); return; }
 
@@ -2120,17 +2168,6 @@ function mealSheet(date) {
         }
         mealSheet(dr.date);
       });
-      return;
-    }
-
-    if (t.hasAttribute("data-muse")) {          /* 接受 AI 的建议：整组填进托盘 */
-      var c = dr.ai && dr.ai.cand;
-      if (!c) return;
-      dr.items = c.meal.foods.map(function (x) {
-        return { fid: x.fid, n: x.n, u: x.u, k: num(x.k), p: num(x.p), qty: x.qty || 1 };
-      });
-      refreshSheet();
-      toast("照上次那顿填好了，不对就改");
       return;
     }
 
@@ -2176,21 +2213,6 @@ function mealSheetHTML(dr) {
   h += '<div class="seg" style="margin:0 0 14px">' + ["早", "午", "晚", "加"].map(function (s) {
     return '<button data-ms="' + s + '" class="' + (dr.meal === s ? "on" : "") + '">' + s + "餐</button>";
   }).join("") + "</div>";
-
-  h += '<div class="pad" style="padding-bottom:10px">';
-  if (dr.photoUrl) {
-    h += '<div class="card"><div class="card-pad meal-photo">' +
-      '<img class="meal-thumb" src="' + dr.photoUrl + '" alt="">' +
-      '<div class="meal-photo-t">照片只用来认这一顿，<b>不会存下来</b>。</div>' +
-      '<button class="qb mini gray" data-mph="rm">✕</button></div></div>';
-  } else {
-    h += '<div class="meal-photo-btns">' +
-      '<button class="btn sec sm" data-mph="cam">拍照</button>' +
-      '<button class="btn sec sm" data-mph="lib">从相册选</button></div>';
-  }
-  h += "</div>";
-
-  if (dr.photoUrl) h += aiBoxHTML(dr);
 
   if (dr.items.length) {
     h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">这一顿（' + dr.items.length + "）</div><div class=\"card\">";
@@ -2250,53 +2272,6 @@ function foodChipHTML(f, on) {
     esc(f.n) + "<s>" + Math.round(num(f.k)) + "</s></button>";
 }
 
-/* ---------- AI 提示条 ---------- */
-function aiBoxHTML(dr) {
-  var a = dr.ai;
-  if (!a) return "";
-  if (a.st === "loading") return '<div class="pad" style="padding-bottom:12px"><div class="ai-box"><span class="ai-spin"></span>' + esc(a.msg) + "</div></div>";
-  if (a.st === "err") return '<div class="pad" style="padding-bottom:12px"><div class="ai-box warn">' + esc(a.msg) + "</div></div>";
-  if (a.st === "ok" && a.cand) {
-    var m = a.cand.meal;
-    return '<div class="pad" style="padding-bottom:12px"><div class="ai-box hit">看着像 <b>' +
-      esc(m.date.slice(5).replace("-", "/")) + "</b> 那顿 · " + esc(mealNames(m)) +
-      '<button class="btn sm" data-muse="1" style="margin-top:10px;width:100%">就用这一组</button></div></div>';
-  }
-  return '<div class="pad" style="padding-bottom:12px"><div class="ai-box">这张没认出来。下面点一下是哪几样，<b>下次拍同一道菜它就记住了</b>。</div></div>';
-}
-
-/* ---------- 拍照 / 相册 ---------- */
-function mealPickPhoto(dr, how) {
-  if (how === "rm") { dropPhoto(dr); refreshSheet(); return; }
-  pickPhoto(function (file) {
-    dropPhoto(dr);
-    dr.photoUrl = URL.createObjectURL(file);
-    var firstTime = !_embModel;
-    dr.ai = { st: "loading", msg: firstTime ? "第一次要下载 AI（约 18MB，只下一次），大概十几秒…" : "正在看这张…" };
-    refreshSheet();
-
-    var img = new Image();
-    img.onload = function () {
-      ensureAI(function (err) {
-        if (err) {
-          dr.ai = { st: "err", msg: "AI 没加载上（可能是没连上网）。不影响记，直接点下面常吃的就行。" };
-          refreshSheet(); return;
-        }
-        try {
-          dr.emb = vecToStr(embedImage(img));
-          dr.ai = { st: "ok", cand: aiMatch(dr.emb) };
-        } catch (e) {
-          dr.emb = null;
-          dr.ai = { st: "err", msg: "这张图读不了，直接点下面常吃的就行。" };
-        }
-        refreshSheet();
-      });
-    };
-    img.onerror = function () { dr.ai = { st: "err", msg: "这张图读不了" }; refreshSheet(); };
-    img.src = dr.photoUrl;
-  }, how === "cam");
-}
-
 /* ---------- 提交 ---------- */
 function mealCommit(dr) {
   if (!dr.items.length) { toast("先点一下吃了什么"); return "keep"; }
@@ -2313,8 +2288,7 @@ function mealCommit(dr) {
   D.meals.push({
     id: id, date: date, meal: dr.meal,
     foods: dr.items.slice(),        /* 存快照：以后改常吃清单不会篡改历史 */
-    k: tot.k, p: tot.p,
-    emb: dr.emb || null             /* 指纹约 1.4KB，照片本身不留 */
+    k: tot.k, p: tot.p
   });
 
   var now = Date.now();
@@ -2324,7 +2298,6 @@ function mealCommit(dr) {
   });
 
   save("nutri"); save("meals"); save("foods");
-  dropPhoto(dr);
   U.mealDraft = null;
   toast(dr.meal + "餐已记下 · " + tot.k + " kcal · " + tot.p + " g 蛋白");
   return null;
@@ -2335,14 +2308,13 @@ function mealRowsHTML(date) {
   var ms = D.meals.filter(function (m) { return m.date === date; });
   if (!ms.length) {
     return '<div class="row"><div class="rl"><div class="rs">今天还没记。' +
-      "第一顿随便点几样，以后拍照它就认得了。</div></div></div>";
+      "下面点几样常吃的，它就自己算好热量。</div></div></div>";
   }
   return ms.map(function (m) {
     return '<div class="row" data-act="mealView" data-id="' + m.id + '">' +
       '<span class="meal-chip">' + esc(m.meal) + "</span>" +
       '<div class="rl"><div class="rt" style="font-size:16px">' + esc(mealNames(m)) + "</div>" +
-      '<div class="rs">' + Math.round(num(m.k)) + " kcal · " + Math.round(num(m.p)) + " g 蛋白" +
-      (m.emb ? " · 认得住" : "") + "</div></div>" +
+      '<div class="rs">' + Math.round(num(m.k)) + " kcal · " + Math.round(num(m.p)) + " g 蛋白</div></div>" +
       '<span class="chev">›</span></div>';
   }).join("");
 }
@@ -2439,103 +2411,6 @@ function foodEditSheet(id, after) {
   setTimeout(function () { var el = $("#fdN"); if (el) el.focus(); }, 350);
 }
 
-/* ============================================================
-   11c. AI：MobileNet 特征 + 「像不像」匹配
-   ------------------------------------------------------------
-   tf.min.js 和模型都按需加载：App 启动时一个字节都不碰，
-   第一次点「拍照」才拉，之后由 Service Worker 缓存下来，离线可用。
-   ============================================================ */
-var _embModel = null, _aiWant = null;
-
-function loadTF(cb) {
-  if (window.tf && window.tf.loadLayersModel) { cb(null); return; }
-  var s = document.createElement("script");
-  s.src = "tf.min.js";
-  s.onload = function () { cb(window.tf ? null : new Error("tf 没起来")); };
-  s.onerror = function () { cb(new Error("tf.min.js 下载失败")); };
-  document.head.appendChild(s);
-}
-function ensureAI(cb) {
-  if (_embModel) { cb(null); return; }
-  if (_aiWant) { _aiWant.push(cb); return; }        /* 正在加载：排队等着，别重复下 18MB */
-  _aiWant = [cb];
-  function flush(err) {
-    var q = _aiWant; _aiWant = null;
-    q.forEach(function (fn) { fn(err); });
-  }
-  loadTF(function (e1) {
-    if (e1) { flush(e1); return; }
-    tf.loadLayersModel("model/model.json").then(function (base) {
-      /* 取倒数第二层（全局平均池化）当特征，不用最后那 1000 个菜名 */
-      var pool = null;
-      base.layers.forEach(function (l) { if (l.getClassName() === "GlobalAveragePooling2D") pool = l; });
-      _embModel = tf.model({ inputs: base.inputs, outputs: (pool || base.layers[base.layers.length - 2]).output });
-      flush(null);
-    }).catch(function (e2) { flush(e2); });
-  });
-}
-/* 中心方形裁切到 224×224 —— 和模型训练时的取景一致，也避免拉伸变形 */
-function to224(img) {
-  var c = document.createElement("canvas");
-  c.width = 224; c.height = 224;
-  var s = Math.min(img.width, img.height);
-  c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 224, 224);
-  return c;
-}
-function embedImage(img) {
-  return tf.tidy(function () {
-    var x = tf.browser.fromPixels(to224(img)).toFloat().expandDims(0);
-    var half = tf.scalar(127.5);                    /* MobileNet 要 [-1,1] 输入 */
-    var out = _embModel.predict(x.sub(half).div(half));
-    return Array.prototype.slice.call(out.dataSync());
-  });
-}
-/* 压成 1024 个字节再转 base64（约 1.4KB）。
-   特征都是 ReLU 后的非负值，等比压到 0–255 不影响余弦相似度。 */
-function vecToStr(v) {
-  var n = v.length, u = new Uint8Array(n), i, m = 0;
-  for (i = 0; i < n; i++) if (v[i] > m) m = v[i];
-  if (m <= 0) m = 1;
-  for (i = 0; i < n; i++) u[i] = clamp(Math.round((v[i] / m) * 255), 0, 255);
-  var s = "";
-  for (i = 0; i < n; i++) s += String.fromCharCode(u[i]);
-  return btoa(s);
-}
-function strToVec(s) {
-  var b = atob(s), u = new Uint8Array(b.length), i;
-  for (i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
-  return u;
-}
-function cosVec(a, b) {
-  var s = 0, na = 0, nb = 0, i, n = Math.min(a.length, b.length);
-  for (i = 0; i < n; i++) { s += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
-  if (!na || !nb) return 0;
-  return s / Math.sqrt(na * nb);
-}
-function setKey(m) {
-  return m.foods.map(function (x) { return x.fid || x.n; }).sort().join("|");
-}
-/* 找最像的那一顿。两道关卡都过才敢提示：
-   ① 最像的要 ≥ AI_MATCH；② 还要比「另一组不一样的菜」里最像的那顿再高出 AI_MARGIN。
-   实测：同一道菜 0.96–1.00，不同菜 0.38–0.82。这两条是保守取值，宁可不提示。 */
-function aiMatch(str) {
-  var q = strToVec(str), best = null, bestS = -1;
-  D.meals.forEach(function (m) {
-    if (!m.emb) return;
-    var s = cosVec(q, strToVec(m.emb));
-    if (s > bestS) { bestS = s; best = m; }
-  });
-  if (!best || bestS < AI_MATCH) return null;
-  var key = setKey(best), other = -1;
-  D.meals.forEach(function (m) {
-    if (!m.emb || setKey(m) === key) return;
-    var s = cosVec(q, strToVec(m.emb));
-    if (s > other) other = s;
-  });
-  if (other >= 0 && bestS - other < AI_MARGIN) return null;
-  return { meal: best, score: bestS };
-}
-
 function addPhotoSheet() {
   var t = ds();
   var h = '<div class="note" style="padding-bottom:14px">选一个角度，然后拍照或从相册选。</div><div class="card">';
@@ -2625,6 +2500,13 @@ function settingsSheet() {
     Math.round(s.tdee - s.deficitRest) + "</b> kcal。<br>" +
     "饮食页会自动挑：轮到你练的那天用训练日的数，休息那天用休息日的数。</div></div>";
 
+  h += '<div class="sec"><div class="sec-t">记录</div><div class="card">';
+  h += '<div class="row" data-act="togRir"><div class="rl"><div class="rt">显示 RIR 列</div>' +
+    '<div class="rs">RIR = 这组做完还能再做几次。不填也行，默认关</div></div>' +
+    '<span class="chev" id="rirState" style="font-size:14px;color:' +
+    (s.showRir ? "var(--blue)" : "var(--tx3)") + '">' + (s.showRir ? "开" : "关") + "</span></div>";
+  h += "</div></div>";
+
   h += '<div class="sec"><div class="sec-t">数据</div><div class="card">';
   h += '<div class="row" data-act="export"><div class="rl"><div class="rt">导出备份</div><div class="rs">存成一个文件，换手机时用</div></div><span class="chev">›</span></div>';
   h += '<div class="row" data-act="import"><div class="rl"><div class="rt">导入备份</div><div class="rs">从备份文件恢复</div></div><span class="chev">›</span></div>';
@@ -2651,6 +2533,17 @@ function settingsSheet() {
     if (a === "export") { closeSheet(); doExport(); }
     else if (a === "import") { closeSheet(); doImport(); }
     else if (a === "wipe") { closeSheet(); doWipe(); }
+    else if (a === "togRir") {
+      /* 立刻生效、立刻保存，不用等「保存」——顺手就把这一行的字改了，
+         省得重开整个弹层（那样会把你没保存的输入冲掉）。 */
+      s.showRir = !s.showRir;
+      var el = $("#rirState");
+      if (el) {
+        el.textContent = s.showRir ? "开" : "关";
+        el.style.color = s.showRir ? "var(--blue)" : "var(--tx3)";
+      }
+      save("settings");
+    }
   };
 }
 

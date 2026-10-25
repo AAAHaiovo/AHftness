@@ -660,39 +660,8 @@ h1,h2,h3,h4,p{margin:0}
 .row .rv.meal-num .rv-t{font-size:11.5px; color:var(--tx3); text-decoration:none}
 
 /* ============================================================
-   记一顿：照片 · AI 提示 · 托盘 · 常吃网格
+   记一顿：托盘 · 常吃网格
    ============================================================ */
-
-/* 还没拍照时那两个并排按钮 */
-.meal-photo-btns{display:flex; gap:10px}
-.meal-photo-btns .btn{flex:1}
-
-/* 拍完的小图 + 说明。照片只在弹层开着的时候用，关掉就没了 */
-.meal-photo{display:flex; align-items:center; gap:12px}
-.meal-thumb{
-  width:56px; height:56px; flex:none; border-radius:12px;
-  object-fit:cover; background:var(--card3); display:block;
-}
-.meal-photo-t{flex:1; min-width:0; font-size:12.5px; line-height:1.45; color:var(--tx2)}
-.meal-photo-t b{color:var(--tx); font-weight:650}
-
-/* AI 提示条。三种状态：灰（在看/没认出来）、绿（认出来了）、红（出错） */
-.ai-box{
-  border-radius:14px; padding:12px 14px; font-size:13.5px; line-height:1.5;
-  background:var(--card2); color:var(--tx2);
-  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
-}
-.ai-box b{color:var(--tx); font-weight:650}
-.ai-box.hit{background:var(--green-t); color:#1B7A3B}
-.ai-box.hit b{color:#145F2D}
-.ai-box.warn{background:#FFEBEE; color:#B3261E}
-.ai-box .btn{flex:none}
-.ai-spin{
-  width:14px; height:14px; flex:none; border-radius:50%;
-  border:2px solid var(--card3); border-top-color:var(--blue);
-  animation:aispin .7s linear infinite;
-}
-@keyframes aispin{to{transform:rotate(360deg)}}
 
 /* 「这一顿」托盘：一行 = 菜名 + − 份数 ＋ 删 */
 .row.tray-row{gap:6px}
