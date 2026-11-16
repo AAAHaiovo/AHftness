@@ -15,8 +15,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta id="iosStatusBar" name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="健身">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=13">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=13">
 
 <!-- 外观：在样式表之前定好 light / dark，避免启动时白屏闪一下。
      存的是「用户选的模式」（light / dark / auto），实际生效值写到 data-theme。 -->
@@ -79,6 +79,9 @@
     <button class="rest-btn rest-x" id="restSkip">跳过</button>
   </div>
 </div>
+
+<!-- 全屏专注 / 休息 / 锁屏预览。盖住顶栏和标签栏，退出后回到训练表格。 -->
+<div id="focusRoot" class="focus-wrap" hidden></div>
 
 <!-- 底部标签栏 -->
 <nav id="tabs"></nav>

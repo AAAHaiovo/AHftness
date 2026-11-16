@@ -838,11 +838,10 @@ function buildTabs() {
 /* ============================================================
    9. 屏幕渲染
    ============================================================ */
-function render() {
+function renderCurrentTab() {
   if (!READY) return;
   U.urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
   U.urls = [];
-  buildTabs();
   var v = $("#view");
   if (U.tab === "train") v.innerHTML = viewTrain();
   else if (U.tab === "cal") v.innerHTML = viewCal();
@@ -852,12 +851,19 @@ function render() {
   setHeader();
   if (U.tab === "train") restoreFocus();
 }
+function render() {
+  if (!READY) return;
+  buildTabs();
+  renderCurrentTab();
+}
 
 function setHeader() {
   var t = "", s = "";
   if (U.tab === "train") {
     var did = todayDayId(), d = findDay(did);
-    t = "训练"; s = d ? d.title : (did === "rest" ? "休息日" : "");
+    t = d ? d.title : (did === "rest" ? "休息日" : "训练");
+    var tlg = D.logs[ds()];
+    s = d ? (d.tab + " · " + (tlg ? (tlg.end ? "已结束" : "进行中") : "未开始")) : "练三天休一天";
   } else if (U.tab === "cal") { t = "日历"; s = ds(); }
   else if (U.tab === "diet") { t = "饮食"; s = ds(); }
   else if (U.tab === "body") { t = "身体"; s = "体重 " + latestWeightTxt(); }
@@ -879,23 +885,42 @@ function viewTrain() {
 
   var h = "";
   var isToday = !!D.logs[today];
+  var lg = D.logs[today];
+  var ended = !!(lg && lg.end);
   var hh = new Date().getHours();
   var greet = hh < 11 ? "早上好" : hh < 14 ? "中午好" : hh < 18 ? "下午好" : "晚上好";
+  var totalSets = day.ex.reduce(function (a, e) { return a + e.s; }, 0);
+  var doneSets = 0;
+  if (lg) {
+    day.ex.forEach(function (e) {
+      doneSets += ((lg.ex[e.id] || []).filter(function (s) { return s.d; }).length);
+    });
+  }
+  var pct = totalSets ? Math.round(doneSets / totalSets * 100) : 0;
+  var estimate = Math.max(20, Math.round(totalSets * 3.2));
 
-  /* 顶部当日卡 */
-  h += '<div class="pad" style="padding-bottom:12px">';
-  h += '<div class="card"><div class="card-pad" style="padding:16px var(--gap)">';
-  /* 「换一天」用绝对定位浮在右上角，不占流。
-     否则它会把居中的标题往左推，居中的其实不是整张卡的中线。 */
-  h += '<div style="position:relative">';
-  h += '<div style="text-align:center">';
-  h += '<div style="font-size:13px;color:var(--tx2);margin-bottom:3px">' + greet + " · " + (parseD(today).getMonth() + 1) + "月" + parseD(today).getDate() + "日</div>";
-  h += '<div style="font-size:24px;font-weight:700;letter-spacing:-.6px">' + esc(day.title) + "</div>";
-  h += '<div class="mg-chips" style="margin-top:7px;justify-content:center">' + mgChipsHTML(dayMuscles(day)) + "</div>";
-  h += '<div style="font-size:13px;color:var(--tx2);margin-top:6px">' + day.ex.length + " 个动作 · " + day.ex.reduce(function (a, e) { return a + e.s; }, 0) + " 组" + (isToday ? " · 进行中" : "") + "</div>";
+  h += '<div class="train-topline"><span class="tt-date">' + greet + " · " +
+    (parseD(today).getMonth() + 1) + "月" + parseD(today).getDate() + "日</span>" +
+    '<button class="qb" data-act="pickDay" style="height:32px">换一天</button></div>';
+
+  /* 黑色主卡：当天最重要的一件事 + 唯一主操作 */
+  h += '<div class="train-hero">';
+  h += '<div class="th-top"><span>' + esc(day.tab) + " · " + esc(day.title) + "</span><span>" +
+    (isToday ? doneSets + " / " + totalSets + " 组" : "已安排") + "</span></div>";
+  h += "<h2>" + (ended ? "训练已结束" : isToday ? "继续训练" : "今天的训练") + "</h2>";
+  h += '<div class="th-meta">' + day.ex.length + " 个动作 · " + totalSets + " 组 · 约 " + estimate + " 分钟</div>";
+  h += '<div class="th-bar"><i style="width:' + pct + '%"></i></div>';
+  if (!isToday) {
+    h += '<button class="th-btn" data-act="start">开始训练 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>';
+    h += '<div class="th-sub"><span>默认带入上次数据 · 全程免打字</span></div>';
+  } else if (ended) {
+    h += '<button class="th-btn ghost" data-act="scrollTable">查看全部组 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>';
+    h += '<div class="th-sub"><span>已结束 · 下面可以继续补充记录</span></div>';
+  } else {
+    h += '<button class="th-btn" data-act="focus">继续专注训练 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>';
+    h += '<div class="th-sub"><button data-act="scrollTable">查看全部组</button><button data-act="end">结束训练</button></div>';
+  }
   h += "</div>";
-  h += '<button class="qb" data-act="pickDay" style="height:34px;position:absolute;right:0;top:50%;transform:translateY(-50%)">换一天</button>';
-  h += "</div></div></div></div>";
 
   /* 热身（未开始时折叠）：每次必做的 + 当天专项 + 递增热身组 */
   if (!isToday) {
@@ -911,28 +936,30 @@ function viewTrain() {
     h += '<div class="sec"><div class="sec-t">热身 <span class="r">已跳过</span></div></div>';
   }
 
-  /* 动作 */
-  h += '<div class="sec"><div class="sec-t">' + esc(day.tab) + " · " + esc(day.title) + "</div>";
+  h += '<div class="sec" id="trainListWrap"><div class="sec-t">今日动作 <span class="r">' + day.ex.length + " 个 · " + totalSets + " 组</span></div>";
   if (day.hint) h += '<div class="note" style="padding-bottom:8px">' + rich(day.hint) + "</div>";
 
   if (!isToday) {
-    h += '<div class="pad" style="padding-bottom:10px"><button class="btn" data-act="start">开始今天的训练</button></div>';
+    h += '<div class="train-list">';
+    day.ex.forEach(function (ex, i) {
+      h += '<div class="tl-row" data-act="exInfo" data-ex="' + ex.id + '">' +
+        '<span class="tl-n">' + (i + 1) + "</span>" +
+        '<div class="tl-i"><b>' + esc(ex.n) + "</b><small>" + esc(ex.mg) + "</small></div>" +
+        '<div class="tl-r">' + ex.s + "×" + esc(ex.r) + "<small>" + ex.rest + "s</small></div>" +
+        '<span class="chev">›</span></div>';
+    });
+    h += "</div>";
   } else {
-    /* 一键预填。只填空格子，不会冲掉你刚输的东西；
-       填完照样要点每组的 ✓ 才算做完，所以不会「替你记」。
-       按钮下面那句是给第一次用的人看的 —— 灰字不是数据，别被它骗。 */
-    h += '<div class="pad" style="padding-bottom:6px"><button class="btn sec sm" data-act="fillDay">今天照上次填好</button>' +
-      '<div class="note" style="padding:8px 2px 0;text-align:center">格子里的浅灰字是上次的数，点 ✓ 才会真的记下来</div></div>';
+    h += '<div class="train-toolbar"><button class="tb-btn" data-act="fillDay">今天照上次填好</button>' +
+      '<button class="tb-btn" data-act="focus">进入专注模式</button></div>';
+    day.ex.forEach(function (ex, i) {
+      h += exCard(ex, i + 1, true);
+    });
   }
-
-  day.ex.forEach(function (ex, i) {
-    h += exCard(ex, i + 1, isToday);
-  });
   h += "</div>";
 
   /* 结束按钮 */
   if (isToday) {
-    var lg = D.logs[today];
     var vol = sessionVolume(lg), ns = sessionSets(lg);
     h += '<div class="pad"><div class="stats" style="margin-bottom:12px">' +
       '<div class="stat"><div class="v">' + fmt(vol, 0) + '<small>kg</small></div><div class="l">总容量</div></div>' +
@@ -957,16 +984,16 @@ function viewRest() {
   var cyc = planCycle();
   var nextDay = findDay(cyc[(todayCycleIndex() + 1) % cyc.length]);
 
-  var h = '<div class="pad" style="padding-bottom:12px">';
-  h += '<div class="card"><div class="card-pad" style="padding:26px var(--gap);text-align:center">';
-  h += '<div style="font-size:13px;color:var(--tx2);margin-bottom:3px">' + greet + " · " +
-    (parseD(today).getMonth() + 1) + "月" + parseD(today).getDate() + "日</div>";
-  h += '<div style="font-size:26px;font-weight:700;letter-spacing:-.6px">今天休息</div>';
-  h += '<div style="font-size:13.5px;color:var(--tx2);margin-top:8px;line-height:1.65">' +
-    "练三天、休一天 —— 今天这一格不是偷懒，<br>肌肉是今天长出来的。</div>";
-  if (pd) h += '<div style="font-size:12.5px;color:var(--tx3);margin-top:14px">上次练的是「' + esc(pd.title) + "」</div>";
-  if (nextDay) h += '<div style="font-size:12.5px;color:var(--tx3);margin-top:4px">下一次练：' + esc(nextDay.title) + "</div>";
-  h += "</div></div></div>";
+  var h = '<div class="train-topline"><span class="tt-date">' + greet + " · " +
+    (parseD(today).getMonth() + 1) + "月" + parseD(today).getDate() + "日</span><span>REST DAY</span></div>";
+  h += '<div class="train-hero">';
+  h += '<div class="th-top"><span>循环 · 练三天休一天</span><span>REST</span></div>';
+  h += "<h2>今天休息</h2>";
+  h += '<div class="th-meta">肌肉是今天长出来的 · 不用练，也别自责</div>';
+  h += '<button class="th-btn ghost" data-act="pickDay">今天还是想练</button>';
+  h += '<div class="th-sub"><span>' + (pd ? "上次练「" + esc(pd.title) + "」" : "") +
+    (nextDay ? " · 下次「" + esc(nextDay.title) + "」" : "") + "</span></div>";
+  h += "</div>";
 
   h += '<div class="sec"><div class="sec-t">今天可以做</div><div class="card">';
   [
@@ -981,7 +1008,6 @@ function viewRest() {
   });
   h += "</div></div>";
 
-  h += '<div class="pad"><button class="btn sec" data-act="pickDay">今天还是想练</button></div>';
   h += '<div class="foot">循环：胸 → 背 → 肩+腹 → 休息 → 胸 → 背 → 肩+腿+臀 → 休息</div>';
   return h;
 }
@@ -1540,6 +1566,7 @@ document.addEventListener("click", function (e) {
   var t = e.target.closest("[data-act]");
   var tabBtn = e.target.closest("#tabs button");
   if (tabBtn) {
+    if (Focus.on) Focus.close(true);
     U.tab = tabBtn.getAttribute("data-tab");
     try { history.replaceState(null, "", "#" + U.tab); } catch (x) {}
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -1555,8 +1582,25 @@ document.addEventListener("click", function (e) {
     case "togWarm": $("#warmCard").hidden = !$("#warmCard").hidden; $("#warmTog").textContent = $("#warmCard").hidden ? "展开" : "收起"; break;
     case "togWarm2": $("#warmCard2").hidden = !$("#warmCard2").hidden; $("#warmTog2").textContent = $("#warmCard2").hidden ? "展开" : "收起"; break;
     case "start":
-      ensureLog(ds(), todayDayId()); save("logs"); render();
-      toast("开始训练，加油 💪"); break;
+      ensureLog(ds(), todayDayId()); save("logs"); render(); Focus.enter(); break;
+    case "focus":
+      Focus.enter(); break;
+    case "scrollTable":
+      var stw = document.getElementById("trainListWrap");
+      if (stw) stw.scrollIntoView({ behavior: "smooth", block: "start" });
+      break;
+    case "focusStep":
+      Focus.step(t.getAttribute("data-f"), parseFloat(t.getAttribute("data-v"))); break;
+    case "focusDone": Focus.complete(); break;
+    case "focusUndo": Focus.undo(); break;
+    case "focusRestPlus": Focus.addRest(30); break;
+    case "focusRestSkip": Focus.skipRest(); break;
+    case "focusExit": Focus.exit(); break;
+    case "focusExitConfirm": Focus.close(); break;
+    case "focusLock": Focus.openLock(); break;
+    case "focusLockClose": Focus.closeLock(); break;
+    case "focusEnd": Focus.endWorkout(); break;
+    case "focusClose": Focus.close(); break;
     case "end":
       var lg = D.logs[ds()];
       if (lg) { lg.end = Date.now(); save("logs"); render(); toast("训练完成 🎉"); }
@@ -1764,6 +1808,504 @@ function checkPR(eid, si) {
     vibrate([60, 40, 60]);
   }
 }
+
+/* ============================================================
+   11b. 全屏专注 / 全屏休息 / 锁屏预览
+   ------------------------------------------------------------
+   这一层不另存一份训练数据：读写的还是 D.logs 里同一组
+   {w, r, rir, d}。所以你在专注模式里完成的组，回到表格、
+   日历、历史记录里都能看到；反过来在表格里改的数，专注
+   模式也会读同一份。
+   ============================================================ */
+var Focus = (function () {
+  var S = {
+    on: false, mode: "focus", eid: null, si: null,
+    restEnd: 0, restTotal: 0, restTick: null, warned: false,
+    undo: null, undoT: null, lastDone: null,
+    exitArmed: false, exitT: null, clock: null
+  };
+
+  function root() { return $("#focusRoot"); }
+  function today() { return ds(); }
+  function dayInfo() {
+    var lg = D.logs[today()];
+    if (!lg) return null;
+    var d = findDay(lg.dayId);
+    return d ? { lg: lg, d: d } : null;
+  }
+  function totalSets(d) {
+    return d.ex.reduce(function (a, e) { return a + e.s; }, 0);
+  }
+  function doneSets(d) {
+    var lg = D.logs[today()];
+    if (!lg) return 0;
+    return d.ex.reduce(function (a, e) {
+      return a + ((lg.ex[e.id] || []).filter(function (s) { return s.d; }).length);
+    }, 0);
+  }
+  function allDone() {
+    var info = dayInfo();
+    if (!info) return false;
+    return info.d.ex.every(function (ex) {
+      var arr = ensureSets(today(), ex);
+      return arr.length > 0 && arr.every(function (s) { return s.d; });
+    });
+  }
+  function mmss(sec) {
+    sec = Math.max(0, Math.round(sec));
+    return Math.floor(sec / 60) + ":" + p2(sec % 60);
+  }
+  function elapsed() {
+    var lg = D.logs[today()];
+    if (!lg || !lg.start) return "00:00";
+    var t = Math.max(0, Math.floor((Date.now() - lg.start) / 1000));
+    return p2(Math.floor(t / 60)) + ":" + p2(t % 60);
+  }
+  function setTxt(s) { return (s.w || "—") + " × " + (s.r || "—"); }
+
+  /* 当前该做哪一个动作、哪一组。全部做完时返回最后一组，
+     由 render() 切到完成页。 */
+  function current() {
+    var info = dayInfo();
+    if (!info) return null;
+    var lg = info.lg, d = info.d, ex = null, eid = S.eid;
+    if (eid) {
+      ex = findEx(eid);
+      if (ex && d.ex.map(function (x) { return x.id; }).indexOf(eid) < 0) ex = null;
+    }
+    if (!ex) {
+      for (var i = 0; i < d.ex.length; i++) {
+        var a0 = ensureSets(today(), d.ex[i]);
+        var has = a0.some(function (s) { return !s.d; });
+        if (has) { ex = d.ex[i]; break; }
+      }
+      if (!ex) ex = d.ex[d.ex.length - 1];
+      eid = ex.id;
+    }
+    var arr = ensureSets(today(), ex);
+    var si = -1;
+    if (S.eid === eid && S.si != null && S.si >= 0 && S.si < arr.length && !arr[S.si].d) si = S.si;
+    if (si < 0) {
+      for (var j = 0; j < arr.length; j++) { if (!arr[j].d) { si = j; break; } }
+    }
+    if (si < 0) si = arr.length - 1;
+    var s = arr[si] || { w: "", r: "", rir: "", d: false };
+    var last = lastRecord(eid, today());
+    var src = lastSetSrc(last, si) || {};
+    var w = (s.w !== "" && s.w != null) ? s.w : (src.w || "");
+    var r = (s.r !== "" && s.r != null) ? s.r : (src.r || "");
+    return {
+      lg: lg, d: d, ex: ex, eid: eid, si: si, arr: arr, s: s, last: last, src: src,
+      w: w, r: r,
+      exIndex: d.ex.map(function (x) { return x.id; }).indexOf(eid),
+      totalSets: totalSets(d), doneSets: doneSets(d)
+    };
+  }
+
+  /* 从某一组往后再找第一个没完成的；找不到就回到开头找。
+     返回 null = 全部完成。 */
+  function nextFrom(eid, si) {
+    var info = dayInfo();
+    if (!info) return null;
+    var d = info.d;
+    var startIdx = -1;
+    for (var i = 0; i < d.ex.length; i++) if (d.ex[i].id === eid) { startIdx = i; break; }
+    if (startIdx < 0) startIdx = 0;
+    function findFrom(idx, from) {
+      var arr = ensureSets(today(), d.ex[idx]);
+      for (var j = from; j < arr.length; j++) if (!arr[j].d) return { eid: d.ex[idx].id, si: j };
+      return null;
+    }
+    var hit = findFrom(startIdx, (si == null ? 0 : si + 1));
+    if (hit) return hit;
+    for (var k = startIdx + 1; k < d.ex.length; k++) {
+      hit = findFrom(k, 0); if (hit) return hit;
+    }
+    for (var m = 0; m <= startIdx; m++) {
+      var arr2 = ensureSets(today(), d.ex[m]);
+      var end = (m === startIdx && si != null) ? Math.min(arr2.length, si + 1) : arr2.length;
+      for (var n = 0; n < end; n++) if (!arr2[n].d) return { eid: d.ex[m].id, si: n };
+    }
+    return null;
+  }
+
+  function top(meta) {
+    return '<div class="focus-top">' +
+      '<div class="focus-brand">' +
+        '<span class="focus-logo"><svg viewBox="0 0 628 659" aria-hidden="true"><use href="#ahMark" xlink:href="#ahMark"></use></svg></span>' +
+        '<span class="focus-meta">' + meta + '</span>' +
+      '</div>' +
+      '<button class="focus-exit" data-act="focusExit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>退出</button>' +
+    '</div>';
+  }
+  function undoBar() {
+    if (!S.undo) return "";
+    return '<div class="focus-undo"><span>已记录 <b>' + esc(S.undo.label) + '</b> · 5 秒内可撤销</span>' +
+      '<button data-act="focusUndo">撤销</button></div>';
+  }
+  function exitBar() {
+    if (!S.exitArmed) return "";
+    return '<div class="focus-undo exit"><span>再点一次退出，记录已保存</span>' +
+      '<button data-act="focusExitConfirm">确认退出</button></div>';
+  }
+
+  function focusHTML() {
+    var c = current();
+    if (!c) {
+      return top('<b>专注训练</b>') +
+        '<div class="focus-done"><h2>今天没有训练</h2><p>去「计划」页挑一天，或点「换一天」。</p>' +
+        '<button class="focus-main" data-act="focusClose">回到训练页</button></div>';
+    }
+    var ex = c.ex;
+    var next = nextFrom(c.eid, c.si);
+    var nextEx = next ? findEx(next.eid) : null;
+    var nextSet = next ? ensureSets(today(), nextEx)[next.si] : null;
+    var target = ex.s + "×" + esc(ex.r);
+    var lastTxt = (c.src && (c.src.w || c.src.r)) ? ((c.src.w || "—") + " × " + (c.src.r || "—")) : "第一次";
+    var hint = c.si >= ex.s - 1 ? "本动作最后一组" : "还剩 " + (ex.s - c.si - 1) + " 组";
+    var bars = c.arr.map(function (s, i) {
+      return '<i class="' + (s.d ? "done" : i === c.si ? "cur" : "") + '"></i>';
+    }).join("");
+    var nextHtml = next
+      ? '<div class="focus-next">NEXT<b>' + esc(nextEx.n) + '</b><span>第 ' + (next.si + 1) + ' 组 · ' +
+        (nextSet.w || "—") + ' kg × ' + (nextSet.r || "—") + ' · 组间 ' + nextEx.rest + 's</span></div>'
+      : '<div class="focus-next">ALL DONE<b>全部动作完成</b><span>点下面的按钮收尾</span></div>';
+    var mainLabel = next ? "完成本组 · 开始休息" : "完成本组 · 完成训练";
+    var wTxt = (c.w === "" || c.w == null) ? "—" : esc(c.w);
+    var rTxt = (c.r === "" || c.r == null) ? "—" : esc(c.r);
+    var meta = '动作 <b>' + (c.exIndex + 1) + ' / ' + c.d.ex.length + '</b> · <span id="focusElapsed">' + elapsed() + '</span>';
+
+    return top(meta) +
+      '<div class="focus-scroll">' +
+        '<div class="focus-card">' +
+          '<div class="focus-kicker">当前组 / SET</div>' +
+          '<div class="focus-setnum"><b>' + (c.si + 1) + '</b><span>/ ' + ex.s + ' 组</span><span class="focus-hint">' + hint + '</span></div>' +
+          '<div class="focus-name">' + esc(ex.n) + '</div>' +
+          '<div class="focus-last"><span>目标 <b>' + target + '</b></span><span>上次 <b>' + lastTxt + '</b></span></div>' +
+        '</div>' +
+        '<div class="focus-progress"><div class="focus-bars">' + bars + '</div>' +
+          '<div class="focus-progress-l"><b>本动作 ' + ex.s + ' 组 · 全场 ' + c.doneSets + ' / ' + c.totalSets + '</b><span>进度只读</span></div>' +
+        '</div>' +
+        '<div class="focus-spacer">' + nextHtml + '</div>' +
+      '</div>' +
+      '<div class="focus-dock">' +
+        exitBar() + (S.exitArmed ? "" : undoBar()) +
+        '<div class="focus-dock-h"><b>调整本组数据</b><span>默认带入上一组 · 全程免打字</span></div>' +
+        '<div class="focus-data">' +
+          '<div class="focus-cell"><label>重量 KG</label><div class="focus-value">' + wTxt + '</div><div class="focus-steps">' +
+            '<button data-act="focusStep" data-f="w" data-v="-2.5" aria-label="重量减 2.5">−</button>' +
+            '<button class="plus" data-act="focusStep" data-f="w" data-v="2.5" aria-label="重量加 2.5">+</button></div></div>' +
+          '<div class="focus-cell"><label>次数 REPS</label><div class="focus-value">' + rTxt + '</div><div class="focus-steps">' +
+            '<button data-act="focusStep" data-f="r" data-v="-1" aria-label="次数减 1">−</button>' +
+            '<button class="plus" data-act="focusStep" data-f="r" data-v="1" aria-label="次数加 1">+</button></div></div>' +
+        '</div>' +
+        '<button class="focus-main" data-act="focusDone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 12.5l4.5 4.5L19 7"/></svg>' + mainLabel + '</button>' +
+        '<div class="focus-feedback"><span><b>✓</b> 触觉</span><span><b>♪</b> 提示音</span><button data-act="focusLock">锁屏预览</button></div>' +
+      '</div>';
+  }
+
+  function restHTML() {
+    var last = S.lastDone;
+    if (!last) return focusHTML();
+    var lastEx = findEx(last.eid);
+    var next = nextFrom(last.eid, last.si);
+    var nextEx = next ? findEx(next.eid) : null;
+    var nextSet = next ? ensureSets(today(), nextEx)[next.si] : null;
+    var left = Math.max(0, Math.ceil((S.restEnd - Date.now()) / 1000));
+    var txt = mmss(left);
+    var C = 2 * Math.PI * 88;
+    var pct = S.restTotal ? clamp(left / S.restTotal, 0, 1) : 0;
+    var offset = (C * (1 - pct)).toFixed(1);
+    var nextTxt = next
+      ? '下一组 <b>第 ' + (next.si + 1) + ' 组 · ' + (nextSet.w || "—") + ' kg × ' + (nextSet.r || "—") + '</b>'
+      : '<b>全部动作完成</b>';
+    var meta = '<b>组间休息</b> · <span id="focusElapsed">' + elapsed() + '</span>';
+    return top(meta) +
+      '<div class="focus-rest">' +
+        '<div class="rest-head"><div class="rest-kicker">组间休息 / REST TIMER</div>' +
+          '<div class="rest-title">' + esc(lastEx ? lastEx.n : "训练") + ' · 第 ' + (last.si + 1) + ' 组完成</div></div>' +
+        '<div class="rest-ring-wrap">' +
+          '<svg width="196" height="196" viewBox="0 0 196 196"><circle class="rest-track" cx="98" cy="98" r="88" fill="none" stroke-width="10"/>' +
+          '<circle id="frRing" class="rest-fill" cx="98" cy="98" r="88" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + offset + '"/></svg>' +
+          '<div class="rest-center"><b id="frTime">' + txt + '</b><span>剩余时间</span></div>' +
+        '</div>' +
+        '<div class="rest-next">' + nextTxt + '</div>' +
+        '<div class="rest-dock">' + exitBar() + (S.exitArmed ? "" : undoBar()) +
+          '<div class="rest-actions"><button class="rest-out" data-act="focusRestPlus">+ 30 秒</button>' +
+          '<button class="rest-pri" data-act="focusRestSkip">' + (next ? "立即开始下一组" : "完成训练") + '</button></div>' +
+          '<div class="rest-feedback">最后 10 秒逐秒震动 + 耳机播报 · 归零自动进下一组<br><button data-act="focusLock">锁屏实时活动预览</button></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function lockHTML() {
+    var restOn = !!S.restTick;
+    var last = S.lastDone;
+    var lastEx = last ? findEx(last.eid) : null;
+    var next = last ? nextFrom(last.eid, last.si) : null;
+    var left = Math.max(0, Math.ceil((S.restEnd - Date.now()) / 1000));
+    var txt = restOn ? mmss(left) : "—";
+    var now = new Date();
+    var clock = now.getHours() + ":" + p2(now.getMinutes());
+    var setTxt = next ? ("第 " + (next.si + 1) + " 组") : "完成";
+    return top('<b>锁屏预览</b>') +
+      '<div class="lock-preview">' +
+        exitBar() +
+        '<div class="lock-time" id="lockClock">' + clock + '</div>' +
+        '<div class="lock-date">' + (now.getMonth() + 1) + '月' + now.getDate() + '日 · 训练中</div>' +
+        '<div class="lock-island"><i></i><span id="lockIsland">' + (restOn ? txt + " · " + setTxt : "休息计时") + '</span></div>' +
+        '<div class="lock-label">锁屏实时活动 / LIVE ACTIVITY</div>' +
+        '<div class="lock-card">' +
+          '<div class="lock-c1"><b>' + (restOn ? "组间休息 · " : "当前组 · ") + esc(lastEx ? lastEx.n : "训练") + '</b><span id="lockSet">' + setTxt + '</span></div>' +
+          '<div class="lock-num" id="lockTimer">' + txt + '</div>' +
+          (restOn ? '<div class="lock-btns"><button class="b1" data-act="focusRestPlus">+ 30 秒</button>' +
+            '<button class="b2" data-act="focusRestSkip">' + (next ? "开始下一组" : "完成训练") + '</button></div>' : '') +
+        '</div>' +
+        '<div class="lock-aod"><div><b>Always On Display</b><span>息屏常显，不解锁也能读</span></div><em id="lockAod">' + txt + '</em></div>' +
+        '<div class="lock-tags"><span>iOS 灵动岛</span><span>锁屏实时活动</span><span>StandBy 横放</span><span>Apple Watch</span><span>One UI AOD</span><span>Modes &amp; Routines</span></div>' +
+        '<div class="lock-note"><b>能力边界 ·</b> 这是目标形态：iOS 实时活动 / 灵动岛、One UI AOD、手表与物理按键都需要原生壳；Web/PWA 目前做不到。这里只是预览，不是已经实现的功能。</div>' +
+        '<button class="lock-back" data-act="focusLockClose">返回' + (restOn ? "休息" : "专注") + '</button>' +
+      '</div>';
+  }
+
+  function doneHTML() {
+    var info = dayInfo();
+    var lg = info ? info.lg : null;
+    var d = info ? info.d : null;
+    var vol = lg ? sessionVolume(lg) : 0;
+    var ns = lg ? sessionSets(lg) : 0;
+    var total = d ? totalSets(d) : 0;
+    var mins = (lg && lg.start) ? Math.max(1, Math.round((Date.now() - lg.start) / 60000)) : 0;
+    return top('<b>训练完成</b>') +
+      '<div class="focus-done">' +
+        '<div class="done-mark">✓</div>' +
+        '<h2>今天的训练完成</h2>' +
+        '<p>' + (d ? esc(d.title) : "") + ' · ' + (ns || total) + ' 组 · 总容量 ' + fmt(vol, 0) + ' kg</p>' +
+        '<div class="done-stats">' +
+          '<div><b>' + (ns || total) + '</b><span>完成组</span></div>' +
+          '<div><b>' + fmt(vol, 0) + '</b><span>总容量 kg</span></div>' +
+          '<div><b>' + mins + '</b><span>分钟</span></div>' +
+        '</div>' +
+        '<button class="focus-main" data-act="focusEnd">' + (lg && lg.end ? "已结束 · 回到训练页" : "结束今天的训练") + '</button>' +
+        '<button class="done-secondary" data-act="focusClose">回到训练页</button>' +
+      '</div>';
+  }
+
+  function render() {
+    if (!S.on) return;
+    if (S.mode === "focus" && allDone()) S.mode = "done";
+    if (S.mode === "rest" && !S.lastDone) S.mode = "focus";
+    var html = S.mode === "rest" ? restHTML()
+      : S.mode === "lock" ? lockHTML()
+      : S.mode === "done" ? doneHTML()
+      : focusHTML();
+    root().innerHTML = html;
+    root().hidden = false;
+  }
+
+  function updateClock() {
+    var el = document.getElementById("focusElapsed");
+    if (el) el.textContent = elapsed();
+    var lc = document.getElementById("lockClock");
+    if (lc) {
+      var d = new Date();
+      lc.textContent = d.getHours() + ":" + p2(d.getMinutes());
+    }
+  }
+
+  function stopRest() {
+    if (S.restTick) { clearInterval(S.restTick); S.restTick = null; }
+  }
+  function startRestTick() {
+    stopRest();
+    S.restTick = setInterval(paintRest, 250);
+    paintRest();
+  }
+  function paintRest() {
+    if (!S.on || !S.restEnd) return;
+    var left = Math.max(0, Math.ceil((S.restEnd - Date.now()) / 1000));
+    var txt = mmss(left);
+    var t = document.getElementById("frTime");
+    if (t) t.textContent = txt;
+    var ring = document.getElementById("frRing");
+    if (ring) {
+      var C = 2 * Math.PI * 88;
+      var pct = S.restTotal ? clamp(left / S.restTotal, 0, 1) : 0;
+      ring.setAttribute("stroke-dashoffset", (C * (1 - pct)).toFixed(1));
+      ring.style.stroke = left <= 10 ? "#FF9F0A" : "var(--accent)";
+    }
+    var next = S.lastDone ? nextFrom(S.lastDone.eid, S.lastDone.si) : null;
+    var setTxt = next ? ("第 " + (next.si + 1) + " 组") : "完成";
+    var li = document.getElementById("lockIsland");
+    if (li) li.textContent = txt + " · " + setTxt;
+    var lt = document.getElementById("lockTimer");
+    if (lt) lt.textContent = txt;
+    var la = document.getElementById("lockAod");
+    if (la) la.textContent = txt;
+    if (left <= 10 && !S.warned) {
+      S.warned = true;
+      beep(); vibrate([60, 40, 60]);
+    }
+    if (left <= 0) finishRest();
+  }
+  function finishRest() {
+    stopRest();
+    beep(); vibrate([120, 60, 120]);
+    toast("休息结束，下一组！");
+    var next = S.lastDone ? nextFrom(S.lastDone.eid, S.lastDone.si) : null;
+    S.lastDone = null;
+    if (!next) { S.mode = "done"; render(); return; }
+    S.mode = "focus"; S.eid = next.eid; S.si = next.si;
+    render();
+  }
+
+  function enter(eid, si) {
+    if (todayDayId() === "rest") {
+      toast("今天休息，想练就从「换一天」里挑一天");
+      return;
+    }
+    if (!D.logs[today()]) { ensureLog(today(), todayDayId()); save("logs"); }
+    else if (D.logs[today()].end) { D.logs[today()].end = null; save("logs"); }
+    Rest.stop();
+    stopRest();
+    S.on = true; S.mode = "focus"; S.eid = eid || null; S.si = (si == null ? null : si);
+    S.restEnd = 0; S.restTotal = 0;
+    S.undo = null; S.lastDone = null; S.exitArmed = false; S.warned = false;
+    document.body.classList.add("focusing");
+    root().hidden = false;
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute("content", "#000000");
+    var sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (sb) sb.setAttribute("content", "black");
+    clearInterval(S.clock);
+    S.clock = setInterval(updateClock, 1000);
+    updateClock();
+    Rest.keepAwake(true);
+    render();
+  }
+
+  function close(skipRender) {
+    stopRest();
+    clearInterval(S.clock); S.clock = null;
+    clearTimeout(S.exitT); clearTimeout(S.undoT);
+    S.on = false; S.mode = "focus"; S.eid = null; S.si = null;
+    S.restEnd = 0; S.restTotal = 0; S.warned = false;
+    S.undo = null; S.lastDone = null; S.exitArmed = false;
+    if (root()) { root().hidden = true; root().innerHTML = ""; }
+    document.body.classList.remove("focusing");
+    Rest.keepAwake(false);
+    applyThemeMode(getThemeMode());
+    if (!skipRender) renderCurrentTab();
+  }
+
+  function step(field, delta) {
+    if (field !== "w" && field !== "r") return;
+    var c = current(); if (!c || !c.s) return;
+    var base = field === "w" ? num(c.w) : num(c.r);
+    var v = Math.max(0, base + delta);
+    if (field === "w") c.s.w = v ? fmt(v, 2) : "";
+    else c.s.r = v ? String(Math.round(v)) : "";
+    save("logs");
+    render();
+  }
+
+  function complete() {
+    var c = current(); if (!c || !c.s) return;
+    var s = c.s;
+    if (!s.w && !s.r && c.src) { s.w = c.src.w || ""; s.r = c.src.r || ""; s.rir = c.src.rir || ""; }
+    if (!s.w && c.w) s.w = c.w;
+    if (!s.r && c.r) s.r = c.r;
+    s.d = true;
+    save("logs");
+    checkPR(c.eid, c.si);
+    beep(); vibrate([30, 40, 30]);
+    S.undo = { eid: c.eid, si: c.si, label: (s.w || s.r) ? setTxt(s) : "本组" };
+    clearTimeout(S.undoT);
+    S.undoT = setTimeout(function () {
+      S.undo = null;
+      if (S.on) render();
+    }, 5000);
+    var next = nextFrom(c.eid, c.si);
+    if (!next) {
+      stopRest();
+      S.mode = "done";
+      render();
+      return;
+    }
+    S.lastDone = { eid: c.eid, si: c.si };
+    S.mode = "rest";
+    S.restTotal = (c.ex.rest || 90);
+    S.restEnd = Date.now() + S.restTotal * 1000;
+    S.warned = false;
+    render();
+    startRestTick();
+  }
+
+  function undo() {
+    if (!S.undo) return;
+    var u = S.undo;
+    var lg = D.logs[today()];
+    if (lg && lg.ex && lg.ex[u.eid] && lg.ex[u.eid][u.si]) lg.ex[u.eid][u.si].d = false;
+    save("logs");
+    S.undo = null; clearTimeout(S.undoT);
+    stopRest();
+    S.mode = "focus"; S.eid = u.eid; S.si = u.si; S.lastDone = null;
+    render();
+    toast("已撤销上一组");
+  }
+
+  function addRest(sec) {
+    if (!S.restTick || !S.restEnd) return;
+    S.restEnd += sec * 1000;
+    S.restTotal += sec;
+    S.warned = false;
+    paintRest();
+  }
+  function skipRest() {
+    if (!S.restTick) return;
+    stopRest();
+    var next = S.lastDone ? nextFrom(S.lastDone.eid, S.lastDone.si) : null;
+    S.lastDone = null;
+    if (!next) { S.mode = "done"; render(); return; }
+    S.mode = "focus"; S.eid = next.eid; S.si = next.si;
+    render();
+  }
+  function exit() {
+    if (S.mode === "done" || S.exitArmed) { close(); return; }
+    S.exitArmed = true;
+    render();
+    clearTimeout(S.exitT);
+    S.exitT = setTimeout(function () {
+      S.exitArmed = false;
+      if (S.on) render();
+    }, 5000);
+  }
+  function endWorkout() {
+    var lg = D.logs[today()];
+    if (lg) { lg.end = Date.now(); save("logs"); }
+    close();
+    toast("训练完成 🎉");
+  }
+  function openLock() { S.mode = "lock"; render(); }
+  function closeLock() {
+    S.mode = S.restTick ? "rest" : (allDone() ? "done" : "focus");
+    render();
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && S.on && S.restTick) {
+      Rest.keepAwake(true);
+      paintRest();
+    }
+  });
+
+  return {
+    enter: enter, close: close, render: render, step: step, complete: complete,
+    undo: undo, addRest: addRest, skipRest: skipRest, exit: exit,
+    endWorkout: endWorkout, openLock: openLock, closeLock: closeLock,
+    get on() { return S.on; }
+  };
+})();
 
 /* ============================================================
    12. 弹层内容
