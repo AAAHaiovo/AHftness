@@ -361,7 +361,8 @@ var U = {                       // 界面状态（不持久化）
   urls: [],                     // 照片 objectURL 缓存
   mealDraft: null,              // 「记一顿」的草稿，来回切层不丢已选的东西
   foodMg: false,                // 「记一顿」里是否开着「管理常吃」模式
-  dietPlanOpen: false           // 饮食页底部「每天怎么吃」速查卡是否展开
+  dietPlanOpen: false,          // 饮食页底部「每天怎么吃」速查卡是否展开
+  planDay: null                 // 计划页顶部选中的那一天（d1–d4 / rest）
 };
 
 var READY = false;
@@ -867,7 +868,14 @@ function setHeader() {
   } else if (U.tab === "cal") { t = "日历"; s = ds(); }
   else if (U.tab === "diet") { t = "饮食"; s = ds(); }
   else if (U.tab === "body") { t = "身体"; s = "体重 " + latestWeightTxt(); }
-  else { t = "计划"; s = "三分化"; }
+  else {
+    t = "计划";
+    if (U.planDay === "rest") s = "休息日";
+    else {
+      var ppd = findDay(U.planDay);
+      s = ppd ? ppd.title : "三分化";
+    }
+  }
   $("#hdrTitle").textContent = t;
   $("#hdrSub").textContent = s;
 }
@@ -905,14 +913,13 @@ function viewTrain() {
 
   /* 黑色主卡：当天最重要的一件事 + 唯一主操作 */
   h += '<div class="train-hero">';
-  h += '<div class="th-top"><span>' + esc(day.tab) + " · " + esc(day.title) + "</span><span>" +
+  h += '<div class="th-top"><span>' + esc(day.tab) + " · 训练日</span><span>" +
     (isToday ? doneSets + " / " + totalSets + " 组" : "已安排") + "</span></div>";
   h += "<h2>" + (ended ? "训练已结束" : isToday ? "继续训练" : "今天的训练") + "</h2>";
   h += '<div class="th-meta">' + day.ex.length + " 个动作 · " + totalSets + " 组 · 约 " + estimate + " 分钟</div>";
   h += '<div class="th-bar"><i style="width:' + pct + '%"></i></div>';
   if (!isToday) {
     h += '<button class="th-btn" data-act="start">开始训练 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>';
-    h += '<div class="th-sub"><span>默认带入上次数据 · 全程免打字</span></div>';
   } else if (ended) {
     h += '<button class="th-btn ghost" data-act="scrollTable">查看全部组 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>';
     h += '<div class="th-sub"><span>已结束 · 下面可以继续补充记录</span></div>';
@@ -936,7 +943,7 @@ function viewTrain() {
     h += '<div class="sec"><div class="sec-t">热身 <span class="r">已跳过</span></div></div>';
   }
 
-  h += '<div class="sec" id="trainListWrap"><div class="sec-t">今日动作 <span class="r">' + day.ex.length + " 个 · " + totalSets + " 组</span></div>";
+  h += '<div class="sec" id="trainListWrap"><div class="sec-t">今日动作</div>';
   if (day.hint) h += '<div class="note" style="padding-bottom:8px">' + rich(day.hint) + "</div>";
 
   if (!isToday) {
@@ -944,7 +951,7 @@ function viewTrain() {
     day.ex.forEach(function (ex, i) {
       h += '<div class="tl-row" data-act="exInfo" data-ex="' + ex.id + '">' +
         '<span class="tl-n">' + (i + 1) + "</span>" +
-        '<div class="tl-i"><b>' + esc(ex.n) + "</b><small>" + esc(ex.mg) + "</small></div>" +
+        '<div class="tl-i"><b>' + esc(ex.n) + "</b></div>" +
         '<div class="tl-r">' + ex.s + "×" + esc(ex.r) + "<small>" + ex.rest + "s</small></div>" +
         '<span class="chev">›</span></div>';
     });
@@ -1512,50 +1519,57 @@ function fillPhotos() {
 }
 
 /* ---------------- 计划 ---------------- */
+function planLabel(d) {
+  var map = { d1: "胸/三头", d2: "背/二头", d3: "肩/腹", d4: "肩/腿" };
+  return map[d.id] || d.short || d.title;
+}
 function viewPlan() {
-  var h = "";
-  h += '<div class="note" style="padding-bottom:14px">点某一天可以加动作、改组数次数、调顺序、删除。<br>点动作名字看要点和历史记录。</div>';
-  /* 把轮转顺序摆出来 —— 「休息」也是循环里的一格，不画出来就容易忘 */
-  h += '<div class="sec"><div class="sec-t">循环 · 练三天休一天</div><div class="card"><div class="card-pad">' +
-    '<div style="font-size:13.5px;color:var(--tx2);line-height:1.9">' +
-    planCycle().map(function (id) {
-      if (id === "rest") return '<b style="color:var(--tx2)">休息</b>';
-      var dd = findDay(id);
-      return dd ? esc(dd.short) : "?";
-    }).join('<span style="color:var(--tx3)"> → </span>') +
-    '</div></div></div></div>';
+  var ids = D.plan.days.map(function (d) { return d.id; });
+  if (!U.planDay || (U.planDay !== "rest" && ids.indexOf(U.planDay) < 0)) {
+    var td = todayDayId();
+    U.planDay = (td === "rest" || ids.indexOf(td) >= 0) ? td : (ids[0] || "d1");
+  }
+
+  var h = '<div class="seg">';
   D.plan.days.forEach(function (d) {
+    h += '<button data-act="planSeg" data-v="' + d.id + '" class="' + (U.planDay === d.id ? "on" : "") + '">' + planLabel(d) + '</button>';
+  });
+  h += '<button data-act="planSeg" data-v="rest" class="' + (U.planDay === "rest" ? "on" : "") + '">休息</button></div>';
+
+  if (U.planDay === "rest") {
+    h += '<div class="sec"><div class="card"><div class="card-pad" style="text-align:center;padding:30px 16px">' +
+      '<div style="font-size:26px;font-weight:700;letter-spacing:-.5px">休息日</div>' +
+      '<div style="font-size:13.5px;color:var(--tx2);margin-top:8px;line-height:1.7">练三天休一天。休息也是计划的一部分。</div>' +
+      '</div></div></div>';
+  } else {
+    var d = findDay(U.planDay);
+    if (!d) return h;
     var totalSets = d.ex.reduce(function (a, e) { return a + e.s; }, 0);
-    h += '<div class="sec"><div class="sec-t">' + esc(d.tab) + "</div>";
+    h += '<div class="sec"><div class="sec-t">' + esc(d.tab) + ' <span class="r">' + d.ex.length + " 个动作 · " + totalSets + " 组</span></div>";
     h += '<div class="card">';
-    /* 天标题：部位标签一眼可见，点进去就能编辑 */
-    h += '<div class="row day-hd" data-act="openDay" data-day="' + d.id + '">';
-    h += '<div class="rl"><div class="rt">' + esc(d.title) + "</div>";
-    h += '<div class="mg-chips" style="margin-top:6px">' + mgChipsHTML(dayMuscles(d)) + "</div></div>";
-    h += '<span class="rh">' + d.ex.length + " 个动作 · " + totalSets + " 组</span>";
-    h += '<span class="chev">›</span></div>';
-    /* 动作按部位分段，部位名单独一行 —— 之前和动作名挤在一条灰字里，看不出来 */
-    var prevMg = null;
+    h += '<div class="row day-hd" data-act="openDay" data-day="' + d.id + '">' +
+      '<div class="rl"><div class="rt">' + esc(d.title) + '</div>' +
+      '<div class="mg-chips" style="margin-top:6px">' + mgChipsHTML(dayMuscles(d)) + '</div></div>' +
+      '<span class="chev">›</span></div>';
     d.ex.forEach(function (ex) {
-      if (ex.mg !== prevMg) {
-        h += '<div class="mg-sep ' + mgKey(ex.mg) + '">' + esc(ex.mg) + "</div>";
-        prevMg = ex.mg;
-      }
       h += '<div class="row" data-act="exInfo" data-ex="' + ex.id + '">' +
-        '<div class="rl"><div class="rt" style="font-size:16px">' + esc(ex.n) + "</div>" +
-        '<div class="rs">' + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + "s</div></div>" +
+        '<div class="rl"><div class="rt" style="font-size:16px">' + esc(ex.n) + '</div></div>' +
+        '<span class="rh">' + ex.s + "×" + esc(ex.r) + '</span>' +
         '<span class="chev">›</span></div>';
     });
     h += "</div></div>";
-  });
-  WARM_GROUPS.forEach(function (g) {
-    var items = warmArr(g[0]);
-    if (!items.length) return;
-    h += '<div class="sec"><div class="sec-t">' + esc(g[1]) + '</div><div class="card">' +
-      items.map(function (w) { return warmRowHTML(w, true); }).join("") + "</div></div>";
-  });
-  h += '<div class="sec"><div class="pad"><button class="btn sec sm" data-act="editWarm">编辑热身</button></div></div>';
-  h += '<div class="foot">计划改动会自动保存。</div>';
+  }
+
+  h += '<div class="sec"><div class="sec-t">热身与拉伸</div><div class="card">' +
+    '<div class="row" data-act="editWarm"><div class="rl"><div class="rt">编辑热身与拉伸</div></div><span class="chev">›</span></div>' +
+    "</div></div>";
+
+  h += '<div class="foot" style="text-align:left;padding:8px var(--gap) 24px">循环：' +
+    planCycle().map(function (id) {
+      if (id === "rest") return "休息";
+      var dd = findDay(id);
+      return dd ? esc(dd.short) : "?";
+    }).join(" → ") + "</div>";
   return h;
 }
 
@@ -1619,6 +1633,7 @@ document.addEventListener("click", function (e) {
     case "tog": toggleSet(ex, +si); break;
     case "calSeg": U.calSeg = t.getAttribute("data-v"); render(); break;
     case "bodySeg": U.bodySeg = t.getAttribute("data-v"); render(); break;
+    case "planSeg": U.planDay = t.getAttribute("data-v"); render(); break;
     case "calPrev": U.calMonth = new Date(U.calMonth.getFullYear(), U.calMonth.getMonth() - 1, 1); render(); break;
     case "calNext": U.calMonth = new Date(U.calMonth.getFullYear(), U.calMonth.getMonth() + 1, 1); render(); break;
     case "pickDate": U.selDate = t.getAttribute("data-d"); render(); break;
@@ -1967,9 +1982,9 @@ var Focus = (function () {
       return '<i class="' + (s.d ? "done" : i === c.si ? "cur" : "") + '"></i>';
     }).join("");
     var nextHtml = next
-      ? '<div class="focus-next">NEXT<b>' + esc(nextEx.n) + '</b><span>第 ' + (next.si + 1) + ' 组 · ' +
+      ? '<div class="focus-next">' + (next.eid !== c.eid ? "下一动作" : "下一组") + '<b>' + esc(nextEx.n) + '</b><span>第 ' + (next.si + 1) + ' 组 · ' +
         (nextSet.w || "—") + ' kg × ' + (nextSet.r || "—") + ' · 组间 ' + nextEx.rest + 's</span></div>'
-      : '<div class="focus-next">ALL DONE<b>全部动作完成</b><span>点下面的按钮收尾</span></div>';
+      : '<div class="focus-next"><b>今天的动作做完了</b><span>点下面的按钮收尾</span></div>';
     var mainLabel = next ? "完成本组 · 开始休息" : "完成本组 · 完成训练";
     var wTxt = (c.w === "" || c.w == null) ? "—" : esc(c.w);
     var rTxt = (c.r === "" || c.r == null) ? "—" : esc(c.r);
@@ -1978,19 +1993,18 @@ var Focus = (function () {
     return top(meta) +
       '<div class="focus-scroll">' +
         '<div class="focus-card">' +
-          '<div class="focus-kicker">当前组 / SET</div>' +
           '<div class="focus-setnum"><b>' + (c.si + 1) + '</b><span>/ ' + ex.s + ' 组</span><span class="focus-hint">' + hint + '</span></div>' +
           '<div class="focus-name">' + esc(ex.n) + '</div>' +
           '<div class="focus-last"><span>目标 <b>' + target + '</b></span><span>上次 <b>' + lastTxt + '</b></span></div>' +
         '</div>' +
         '<div class="focus-progress"><div class="focus-bars">' + bars + '</div>' +
-          '<div class="focus-progress-l"><b>本动作 ' + ex.s + ' 组 · 全场 ' + c.doneSets + ' / ' + c.totalSets + '</b><span>进度只读</span></div>' +
+          '<div class="focus-progress-l"><b>本动作 ' + ex.s + ' 组 · 全场 ' + c.doneSets + ' / ' + c.totalSets + '</b></div>' +
         '</div>' +
         '<div class="focus-spacer">' + nextHtml + '</div>' +
       '</div>' +
       '<div class="focus-dock">' +
         exitBar() + (S.exitArmed ? "" : undoBar()) +
-        '<div class="focus-dock-h"><b>调整本组数据</b><span>默认带入上一组 · 全程免打字</span></div>' +
+        '<div class="focus-dock-h"><b>调整本组数据</b></div>' +
         '<div class="focus-data">' +
           '<div class="focus-cell"><label>重量 KG</label><div class="focus-value">' + wTxt + '</div><div class="focus-steps">' +
             '<button data-act="focusStep" data-f="w" data-v="-2.5" aria-label="重量减 2.5">−</button>' +
@@ -2000,7 +2014,6 @@ var Focus = (function () {
             '<button class="plus" data-act="focusStep" data-f="r" data-v="1" aria-label="次数加 1">+</button></div></div>' +
         '</div>' +
         '<button class="focus-main" data-act="focusDone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 12.5l4.5 4.5L19 7"/></svg>' + mainLabel + '</button>' +
-        '<div class="focus-feedback"><span><b>✓</b> 触觉</span><span><b>♪</b> 提示音</span><button data-act="focusLock">锁屏预览</button></div>' +
       '</div>';
   }
 
@@ -2019,10 +2032,9 @@ var Focus = (function () {
     var nextTxt = next
       ? '下一组 <b>第 ' + (next.si + 1) + ' 组 · ' + (nextSet.w || "—") + ' kg × ' + (nextSet.r || "—") + '</b>'
       : '<b>全部动作完成</b>';
-    var meta = '<b>组间休息</b> · <span id="focusElapsed">' + elapsed() + '</span>';
-    return top(meta) +
+    return top("") +
       '<div class="focus-rest">' +
-        '<div class="rest-head"><div class="rest-kicker">组间休息 / REST TIMER</div>' +
+        '<div class="rest-head"><div class="rest-kicker">组间休息</div>' +
           '<div class="rest-title">' + esc(lastEx ? lastEx.n : "训练") + ' · 第 ' + (last.si + 1) + ' 组完成</div></div>' +
         '<div class="rest-ring-wrap">' +
           '<svg width="196" height="196" viewBox="0 0 196 196"><circle class="rest-track" cx="98" cy="98" r="88" fill="none" stroke-width="10"/>' +
@@ -2033,7 +2045,7 @@ var Focus = (function () {
         '<div class="rest-dock">' + exitBar() + (S.exitArmed ? "" : undoBar()) +
           '<div class="rest-actions"><button class="rest-out" data-act="focusRestPlus">+ 30 秒</button>' +
           '<button class="rest-pri" data-act="focusRestSkip">' + (next ? "立即开始下一组" : "完成训练") + '</button></div>' +
-          '<div class="rest-feedback">最后 10 秒逐秒震动 + 耳机播报 · 归零自动进下一组<br><button data-act="focusLock">锁屏实时活动预览</button></div>' +
+          '<div class="rest-feedback"><button data-act="focusLock">锁屏实时活动预览</button></div>' +
         '</div>' +
       '</div>';
   }
@@ -2132,7 +2144,7 @@ var Focus = (function () {
       var C = 2 * Math.PI * 88;
       var pct = S.restTotal ? clamp(left / S.restTotal, 0, 1) : 0;
       ring.setAttribute("stroke-dashoffset", (C * (1 - pct)).toFixed(1));
-      ring.style.stroke = left <= 10 ? "#FF9F0A" : "var(--accent)";
+      ring.style.stroke = left <= 10 ? "#FF9F0A" : "#FFFFFF";
     }
     var next = S.lastDone ? nextFrom(S.lastDone.eid, S.lastDone.si) : null;
     var setTxt = next ? ("第 " + (next.si + 1) + " 组") : "完成";

@@ -45,11 +45,13 @@
   --cal-today-bg:var(--accent);
   --cal-today-fg:var(--accent-fg);
   --focus-ring:#000000;
+  --done-tile-bg:#1C1C1E;
+  --done-tile-fg:#FFFFFF;
   --btn-pri-bg:#000000;
   --btn-pri-fg:#FFFFFF;
   --btn-pri-sh:0 6px 18px -8px rgba(0,0,0,.35);
   --sheet-bg:#F2F2F7;
-  --done-bg:#FBFEF7;
+  --done-bg:var(--card);
 
   /* 尺寸 */
   --r:16px;
@@ -111,11 +113,13 @@ html[data-theme="dark"]{
   --cal-today-bg:var(--blue);
   --cal-today-fg:#FFFFFF;
   --focus-ring:#FFFFFF;
+  --done-tile-bg:#3A3A3C;
+  --done-tile-fg:#FFFFFF;
   --btn-pri-bg:var(--accent);
   --btn-pri-fg:#000000;
   --btn-pri-sh:0 6px 18px -8px rgba(216,255,71,.36);
   --sheet-bg:#1C1C1E;
-  --done-bg:rgba(216,255,71,.05);
+  --done-bg:var(--card);
 
   --sh-1:0 1px 2px rgba(0,0,0,.30), 0 8px 24px -14px rgba(0,0,0,.50);
   --sh-2:0 2px 6px rgba(0,0,0,.40), 0 18px 44px -20px rgba(0,0,0,.65);
@@ -296,13 +300,13 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
   margin-top:1px;
   transition:background .3s ease, color .3s ease;
 }
-.ex.done .ex-i{background:var(--accent); color:var(--accent-fg); box-shadow:0 2px 6px -1px rgba(216,255,71,.45)}
+.ex.done .ex-i{background:var(--done-tile-bg); color:var(--done-tile-fg); box-shadow:none}
 .ex-nm{flex:1; min-width:0; font-size:17px; font-weight:650; letter-spacing:-.25px; line-height:1.3}
 .ex-nm .pr{
   display:inline-block; vertical-align:2px; margin-left:6px;
   font-size:10px; font-weight:700; letter-spacing:.3px;
-  color:var(--accent-fg); background:var(--accent); padding:1.5px 6px; border-radius:5px;
-  box-shadow:0 1px 4px -1px rgba(216,255,71,.5);
+  color:var(--accent); background:#1C1C1E; padding:1.5px 6px; border-radius:5px;
+  box-shadow:0 0 0 .5px rgba(216,255,71,.28);
 }
 .ex-set{
   flex:none; font-size:13px; font-weight:600; color:var(--blue);
@@ -347,7 +351,7 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 }
 .sn:active{transform:scale(.9)}
 .sn.warm{background:var(--orange-t); color:var(--orange-ink)}
-.sn.on{background:var(--accent); color:var(--accent-fg); box-shadow:0 2px 7px -1px rgba(216,255,71,.5)}
+.sn.on{background:var(--done-tile-bg); color:var(--done-tile-fg); box-shadow:none}
 /* 输入格：浅灰「凹槽」+ 内描边。底色要够深才看得出是个输入框 */
 .cell{
   width:100%; height:40px; border-radius:10px; text-align:center;
@@ -364,8 +368,8 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 }
 .cell::placeholder{color:var(--tx3); font-weight:400; font-size:13px}
 .cell.on{
-  background:var(--accent-soft); color:var(--tx);
-  box-shadow:inset 0 0 0 1px rgba(216,255,71,.42);
+  background:var(--card3); color:var(--tx);
+  box-shadow:inset 0 0 0 1px var(--field-line);
 }
 .cell.rir{font-size:14.5px}
 
@@ -533,8 +537,9 @@ html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
   transition:background .3s ease;
 }
 .seg button{
-  flex:1; height:34px; border-radius:9px; font-size:13.5px; font-weight:600;
-  color:var(--tx2); transition:background .18s, color .18s, box-shadow .18s;
+  flex:1; min-width:0; height:34px; border-radius:9px; font-size:13.5px; font-weight:600;
+  color:var(--tx2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:background .18s, color .18s, box-shadow .18s;
 }
 .seg button.on{background:var(--card); color:var(--tx); box-shadow:0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04)}
 html[data-theme="dark"] .seg button.on{background:#48484A; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35)}
@@ -677,9 +682,9 @@ html[data-theme="dark"] .sheet .btn.danger{background:#2C2C2E}
   animation:tin .22s ease;
 }
 @keyframes tin{from{opacity:0; transform:translate(-50%,8px)}to{opacity:1; transform:translate(-50%,0)}}
-.toast.pr{background:var(--accent); color:var(--accent-fg); font-weight:600}
+.toast.pr{background:#1C1C1E; color:var(--accent); font-weight:600; box-shadow:0 0 0 .5px rgba(216,255,71,.30), 0 6px 24px rgba(0,0,0,.35)}
 html[data-theme="dark"] .toast{background:rgba(250,250,252,.94); color:#1C1C1E}
-html[data-theme="dark"] .toast.pr{background:var(--accent); color:var(--accent-fg)}
+html[data-theme="dark"] .toast.pr{background:#1C1C1E; color:var(--accent)}
 html[data-theme="dark"] .rest-bar{box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 0 .5px rgba(255,255,255,.10)}
 
 /* ---------------- 图片查看 ---------------- */
@@ -1089,7 +1094,7 @@ body.focusing{overflow:hidden}
 .rest-ring-wrap{position:relative; width:196px; height:196px; margin:18px auto 0; flex:none}
 .rest-ring-wrap svg{position:absolute; inset:0; transform:rotate(-90deg)}
 .rest-track{stroke:rgba(235,235,245,.14)}
-.rest-fill{stroke:var(--accent); transition:stroke-dashoffset 1s linear, stroke .3s}
+.rest-fill{stroke:#FFFFFF; transition:stroke-dashoffset 1s linear, stroke .3s}
 .rest-center{
   position:absolute; inset:0; display:flex; flex-direction:column;
   align-items:center; justify-content:center;
@@ -1176,9 +1181,9 @@ body.focusing{overflow:hidden}
 }
 .done-mark{
   width:88px; height:88px; border-radius:50%;
-  background:var(--accent); color:var(--accent-fg);
+  background:#1C1C1E; color:var(--accent);
   display:grid; place-items:center; font-size:44px; font-weight:700;
-  box-shadow:0 16px 40px -16px rgba(216,255,71,.5);
+  box-shadow:0 0 0 1px rgba(216,255,71,.35), 0 16px 40px -16px rgba(0,0,0,.8);
 }
 .focus-done h2{font-size:30px; font-weight:700; letter-spacing:-.04em; color:#fff; margin-top:20px}
 .focus-done > p{font-size:14px; color:rgba(235,235,245,.62); margin-top:10px; line-height:1.7}
