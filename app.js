@@ -619,22 +619,22 @@ function svgLine(series, opt) {
   var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">';
   for (var i = 0; i <= 3; i++) {
     var yy = PT + i * ih / 3, val = y1 - i * (y1 - y0) / 3;
-    s += '<line x1="' + PL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - PR) + '" y2="' + yy.toFixed(1) + '" stroke="#E9EBF0" stroke-width="1"/>';
-    s += '<text x="' + (PL - 6) + '" y="' + (yy + 3.5).toFixed(1) + '" font-size="9.5" fill="#AEB2BE" text-anchor="end">' + fmt(val, val > 100 ? 0 : 1) + '</text>';
+    s += '<line class="chart-grid" x1="' + PL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - PR) + '" y2="' + yy.toFixed(1) + '" stroke-width="1"/>';
+    s += '<text class="chart-axis" x="' + (PL - 6) + '" y="' + (yy + 3.5).toFixed(1) + '" font-size="9.5" text-anchor="end">' + fmt(val, val > 100 ? 0 : 1) + '</text>';
   }
   series.forEach(function (ser) {
     if (!ser.vals.length) return;
     var pts = ser.vals.map(function (v) { return X(v.x).toFixed(1) + "," + Y(v.y).toFixed(1); });
     if (ser.fill && ser.vals.length > 1) {
       var f = "M" + PL + "," + (H - PB) + "L" + pts.join("L") + "L" + X(ser.vals[ser.vals.length - 1].x).toFixed(1) + "," + (H - PB) + "Z";
-      s += '<path d="' + f + '" fill="' + (ser.color || "#007AFF") + '" opacity="0.09"/>';
+      s += '<path d="' + f + '" style="fill:' + (ser.color || "var(--blue)") + '" opacity="0.10"/>';
     }
     if (ser.vals.length === 1) {
-      s += '<circle cx="' + X(ser.vals[0].x).toFixed(1) + '" cy="' + Y(ser.vals[0].y).toFixed(1) + '" r="3.5" fill="' + (ser.color || "#007AFF") + '"/>';
+      s += '<circle cx="' + X(ser.vals[0].x).toFixed(1) + '" cy="' + Y(ser.vals[0].y).toFixed(1) + '" r="3.5" style="fill:' + (ser.color || "var(--blue)") + '"/>';
     } else {
-      s += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + (ser.color || "#007AFF") + '" stroke-width="' + (ser.w || 2) + '" stroke-linejoin="round" stroke-linecap="round"' + (ser.dash ? ' stroke-dasharray="4 3"' : '') + '/>';
+      s += '<polyline points="' + pts.join(" ") + '" fill="none" style="stroke:' + (ser.color || "var(--blue)") + '" stroke-width="' + (ser.w || 2) + '" stroke-linejoin="round" stroke-linecap="round"' + (ser.dash ? ' stroke-dasharray="4 3"' : '') + '/>';
       var last = ser.vals[ser.vals.length - 1];
-      if (ser.dot !== false) s += '<circle cx="' + X(last.x).toFixed(1) + '" cy="' + Y(last.y).toFixed(1) + '" r="3.2" fill="' + (ser.color || "#007AFF") + '"/>';
+      if (ser.dot !== false) s += '<circle cx="' + X(last.x).toFixed(1) + '" cy="' + Y(last.y).toFixed(1) + '" r="3.2" style="fill:' + (ser.color || "var(--blue)") + '"/>';
     }
   });
   /* X 轴标签：首 / 中 / 尾 */
@@ -646,7 +646,7 @@ function svgLine(series, opt) {
     var lb = (d.getMonth() + 1) + "/" + d.getDate();
     var anc = i === 0 ? "start" : (i === 2 ? "end" : "middle");
     var xx = clamp(X(t), PL, W - PR);
-    s += '<text x="' + xx.toFixed(1) + '" y="' + (H - 7) + '" font-size="9.5" fill="#AEB2BE" text-anchor="' + anc + '">' + lb + '</text>';
+    s += '<text class="chart-axis" x="' + xx.toFixed(1) + '" y="' + (H - 7) + '" font-size="9.5" text-anchor="' + anc + '">' + lb + '</text>';
   });
   function tStr(n) {
     /* x 轴存的是「第几天」的序号，这里换算回日期 */
@@ -660,10 +660,13 @@ function svgRing(pct, color, size) {
   size = size || 104;
   var r = size / 2 - 8, c = 2 * Math.PI * r;
   pct = clamp(num(pct), 0, 1);   /* NaN 过 clamp 还是 NaN，会让 dasharray 变成非法值，圆环被画满 */
+  var fill = pct > 0
+    ? '<circle class="ring-fill" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" style="stroke:' + color + '" stroke-width="9" stroke-linecap="round"' +
+      ' stroke-dasharray="' + (c * pct).toFixed(1) + ' ' + c.toFixed(1) + '"/>'
+    : "";
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="#EDEFF3" stroke-width="9"/>' +
-    '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="9" stroke-linecap="round"' +
-    ' stroke-dasharray="' + (c * pct).toFixed(1) + ' ' + c.toFixed(1) + '"/></svg>';
+    '<circle class="ring-track" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke-width="9"/>' +
+    fill + '</svg>';
 }
 
 /* ============================================================
@@ -1102,9 +1105,8 @@ function calMonthHTML() {
     if (dateStr === today) cls += " today";
     if (dateStr === U.selDate) cls += " sel";
     if (lg && lg.dayId) cls += " workout";
-    var dtag = "";
-    if (lg && lg.dayId) { var dy = findDay(lg.dayId); dtag = '<span class="dtag">' + esc(dy ? dy.short : "练") + "</span>"; }
-    h += '<div class="' + cls + '" data-act="pickDate" data-d="' + dateStr + '">' + dd + dtag + "</div>";
+    var cdot = (lg && lg.dayId) ? '<span class="cdot"></span>' : "";
+    h += '<div class="' + cls + '" data-act="pickDate" data-d="' + dateStr + '">' + dd + cdot + "</div>";
   }
   var tail = (7 - ((startWd + daysIn) % 7)) % 7;
   for (var t = 1; t <= tail; t++) h += '<div class="cal-d pad">' + t + "</div>";
@@ -1231,8 +1233,8 @@ function viewDiet() {
 
   h += '<div class="pad" style="padding-bottom:14px"><div class="card"><div class="card-pad">';
   h += '<div class="ring-wrap">';
-  h += '<div class="ring" data-act="editP">' + svgRing(np / tp, "#007AFF") + '<div class="rv"><b>' + Math.round(np) + "</b><s>/ " + tp + " g 蛋白</s></div></div>";
-  h += '<div class="ring" data-act="editK">' + svgRing(nk / tk, "#FF9500") + '<div class="rv"><b>' + Math.round(nk) + "</b><s>/ " + tk + " kcal</s></div></div>";
+  h += '<div class="ring" data-act="editP">' + svgRing(np / tp, "var(--blue)") + '<div class="rv"><b>' + Math.round(np) + "</b><s>/ " + tp + " g 蛋白</s></div></div>";
+  h += '<div class="ring" data-act="editK">' + svgRing(nk / tk, "var(--orange)") + '<div class="rv"><b>' + Math.round(nk) + "</b><s>/ " + tk + " kcal</s></div></div>";
   h += "</div>";
   h += '<div class="diet-eq">消耗 <b>' + num(st.tdee) + "</b> − 缺口 <b>" +
     num(mode === "train" ? st.deficitTrain : st.deficitRest) + "</b>（" +
@@ -1253,7 +1255,7 @@ function viewDiet() {
   [20, 30, 40, 50].forEach(function (v) { h += '<button class="qb" data-act="addP" data-v="' + v + '">+' + v + "g 蛋白</button>"; });
   h += "</div>";
   h += '<div class="qb-grid g3" style="margin-top:8px">';
-  [300, 500, 800].forEach(function (v) { h += '<button class="qb" data-act="addK" data-v="' + v + '" style="color:#B26A00">+' + v + " kcal</button>"; });
+  [300, 500, 800].forEach(function (v) { h += '<button class="qb" data-act="addK" data-v="' + v + '" style="color:var(--orange-ink)">+' + v + " kcal</button>"; });
   h += "</div>";
   h += '<button class="btn sec sm" data-act="editP" style="margin-top:12px">手动输入今天的数值</button>';
   h += "</div></div>";
@@ -1411,10 +1413,10 @@ function weightHTML() {
 
     h += '<div class="chart"><div class="chart-t">体重趋势 <span class="v">' + (cur == null ? "" : fmt(cur, 1) + " kg") + "</span></div>";
     h += svgLine([
-      { name: "daily", vals: sRaw, color: "#C9CCD4", w: 1.4, dot: false, fill: true },
-      { name: "ma", vals: sMA2, color: "#007AFF", w: 2.4 }
+      { name: "daily", vals: sRaw, color: "var(--tx3)", w: 1.4, dot: false, fill: true },
+      { name: "ma", vals: sMA2, color: "var(--blue)", w: 2.4 }
     ], { h: 178, baseTime: base });
-    h += '<div class="lg"><span><i style="background:#007AFF"></i>7日均线</span><span><i style="background:#C9CCD4"></i>每日</span></div>';
+    h += '<div class="lg"><span><i style="background:var(--blue)"></i>7日均线</span><span><i style="background:var(--tx3)"></i>每日</span></div>';
     h += "</div>";
     h += '<div class="note">看均线，别看单日。体重一天上下浮动 1kg 很正常。</div>';
   } else {
@@ -1491,7 +1493,7 @@ function viewPlan() {
   h += '<div class="sec"><div class="sec-t">循环 · 练三天休一天</div><div class="card"><div class="card-pad">' +
     '<div style="font-size:13.5px;color:var(--tx2);line-height:1.9">' +
     planCycle().map(function (id) {
-      if (id === "rest") return '<b style="color:var(--green)">休息</b>';
+      if (id === "rest") return '<b style="color:var(--tx2)">休息</b>';
       var dd = findDay(id);
       return dd ? esc(dd.short) : "?";
     }).join('<span style="color:var(--tx3)"> → </span>') +
@@ -1791,7 +1793,7 @@ function exInfoSheet(eid) {
   h += '<div class="card"><div class="card-pad">';
   h += '<div style="font-size:22px;font-weight:700;letter-spacing:-.5px">' + esc(ex.n) + "</div>";
   h += '<div style="font-size:14px;color:var(--tx2);margin-top:4px">' + esc(ex.mg) + " · " + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + " 秒</div>";
-  if (ex.c) h += '<div style="font-size:15px;color:#3A3A40;margin-top:12px;line-height:1.5">' + rich(ex.c) + "</div>";
+  if (ex.c) h += '<div style="font-size:15px;color:var(--tx2);margin-top:12px;line-height:1.5">' + rich(ex.c) + "</div>";
   if (ex.b) h += '<div style="font-size:13px;color:var(--tx2);margin-top:8px">呼吸：' + esc(ex.b) + "</div>";
   h += "</div></div>";
 
@@ -1815,14 +1817,14 @@ function exInfoSheet(eid) {
     var s2 = hist.map(function (x) { return { x: daysBetween(hist[0].d, x.d), y: x.e1 }; });
     h += '<div class="sec" style="margin-top:18px"><div class="sec-t">力量趋势</div><div class="chart">';
     h += '<div class="chart-t">平均重量 <span class="v">' + fmt(hist[hist.length - 1].w, 1) + " kg</span></div>";
-    h += svgLine([{ vals: s1, color: "#007AFF", w: 2.4, fill: true }], { h: 150, baseTime: base });
+    h += svgLine([{ vals: s1, color: "var(--blue)", w: 2.4, fill: true }], { h: 150, baseTime: base });
     h += '<div class="lg"><span>共 ' + hist.length + " 次记录</span></div>";
     h += "</div></div>";
   } else if (hist.length === 1) {
     h += '<div class="note" style="margin-top:14px">这个动作才记了 1 次，再练几次就能看到曲线。</div>';
   }
 
-  if (best > 0) h += '<div class="sec" style="margin-top:16px"><div class="sec-t">个人纪录</div><div class="card"><div class="card-pad" style="display:flex;align-items:center"><div style="flex:1;font-size:15px">估算 1RM（Epley）</div><div style="font-size:22px;font-weight:700;color:var(--orange)">' + fmt(best, 1) + " kg</div></div></div></div>";
+  if (best > 0) h += '<div class="sec" style="margin-top:16px"><div class="sec-t">个人纪录</div><div class="card"><div class="card-pad" style="display:flex;align-items:center"><div style="flex:1;font-size:15px">估算 1RM（Epley）</div><div style="font-size:22px;font-weight:700;color:var(--blue)">' + fmt(best, 1) + " kg</div></div></div></div>";
 
   var allSets = [];
   Object.keys(D.logs).sort().reverse().forEach(function (d) {
@@ -2501,6 +2503,15 @@ function settingsSheet() {
     Math.round(s.tdee - s.deficitRest) + "</b> kcal。<br>" +
     "饮食页会自动挑：轮到你练的那天用训练日的数，休息那天用休息日的数。</div></div>";
 
+  var mode = getThemeMode();
+  h += '<div class="sec"><div class="sec-t">外观</div><div class="card">';
+  [["light", "浅色", "白底，白天 / 光线充足时"], ["dark", "深色", "黑底，夜间 / 健身房杂光下"], ["auto", "跟随系统", "系统切换深色时自动跟着变"]].forEach(function (o) {
+    h += '<div class="row theme-opt ' + (mode === o[0] ? "sel" : "") + '" data-act="theme" data-v="' + o[0] + '">' +
+      '<div class="rl"><div class="rt">' + o[1] + '</div><div class="rs">' + o[2] + '</div></div>' +
+      '<span class="tick">✓</span></div>';
+  });
+  h += "</div></div>";
+
   h += '<div class="sec"><div class="sec-t">记录</div><div class="card">';
   h += '<div class="row" data-act="togRir"><div class="rl"><div class="rt">显示 RIR 列</div>' +
     '<div class="rs">RIR = 这组做完还能再做几次。不填也行，默认关</div></div>' +
@@ -2545,7 +2556,37 @@ function settingsSheet() {
       }
       save("settings");
     }
+    else if (a === "theme") {
+      setThemeMode(r.getAttribute("data-v"));
+    }
   };
+}
+
+/* ---------- 外观 ----------
+   模式存在 localStorage.ah_theme（light / dark / auto）；
+   head 里的小脚本会在首屏之前先定好 data-theme，避免闪白。
+   这里负责：切模式、同步 meta theme-color、跟随系统变化。 */
+function getThemeMode() {
+  return document.documentElement.getAttribute("data-theme-mode") || "auto";
+}
+function applyThemeMode(mode) {
+  var m = (mode === "dark" || mode === "light") ? mode : "auto";
+  var dark = m === "dark" || (m === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme-mode", m);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", dark ? "#000000" : "#F2F2F7");
+  /* iOS 主屏 App 的状态栏样式在启动时读取；这里同步写一份，
+     下次启动就是对的。运行时系统是否重读取决于 iOS 版本。 */
+  var sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (sb) sb.setAttribute("content", dark ? "black" : "default");
+}
+function setThemeMode(mode) {
+  try { localStorage.setItem("ah_theme", mode); } catch (e) {}
+  applyThemeMode(mode);
+  Array.prototype.forEach.call(document.querySelectorAll(".theme-opt"), function (r) {
+    r.classList.toggle("sel", r.getAttribute("data-v") === mode);
+  });
 }
 
 /* ============================================================
@@ -2625,6 +2666,15 @@ function doWipe() {
 /* ============================================================
    14. 启动
    ============================================================ */
+/* 同步 head 里已经定好的外观；auto 模式跟着系统实时变。 */
+applyThemeMode(getThemeMode());
+if (window.matchMedia) {
+  var mqDark = window.matchMedia("(prefers-color-scheme: dark)");
+  var onSysTheme = function () { if (getThemeMode() === "auto") applyThemeMode("auto"); };
+  if (mqDark.addEventListener) mqDark.addEventListener("change", onSysTheme);
+  else if (mqDark.addListener) mqDark.addListener(onSysTheme);
+}
+
 $("#btnGear").addEventListener("click", settingsSheet);
 $("#restPlus").addEventListener("click", function () { Rest.add(30); });
 $("#restSkip").addEventListener("click", function () { Rest.stop(); });

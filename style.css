@@ -4,33 +4,54 @@
    ============================================================ */
 
 :root{
-  /* 颜色 —— 白卡 + 系统蓝。灰阶分成三层，白卡才「浮」得起来 */
-  --bg:#F5F6F8;
+  /* 颜色 —— 白为主，黑/灰/荧光/蓝为辅。
+     荧光只做「当前 / 完成 / 主操作」的填充，蓝只做信息与数据。 */
+  --bg:#F2F2F7;
   --card:#FFFFFF;
-  --card2:#F4F5F8;
-  --card3:#EDEFF3;
-  --tx:#111114;
-  --tx2:#6E7180;
-  --tx3:#AEB2BE;
-  --line:#E9EBF0;
-  --line2:#F1F3F7;
+  --card2:#F2F2F7;
+  --card3:#E5E5EA;
+  --tx:#1C1C1E;
+  --tx2:#6D6D72;
+  --tx3:#76767E;
+  --line:rgba(60,60,67,.12);
+  --line2:rgba(60,60,67,.07);
+
+  --accent:#D8FF47;
+  --accent-d:#B8E62E;
+  --accent-fg:#0A0A0A;
+  --accent-soft:rgba(216,255,71,.16);
 
   --blue:#007AFF;
-  --blue-d:#0062CC;
-  --blue-t:#EAF2FF;
-  --green:#34C759;
+  --blue-d:#0063CC;
+  --blue-t:rgba(0,122,255,.10);
+  --green:#1E9E44;
   --green-d:#1E9E44;
-  --green-t:#E9F9EE;
-  --orange:#FF9500;
-  --orange-t:#FFF4E6;
-  --red:#FF3B30;
+  --green-t:rgba(52,199,89,.12);
+  --orange:#FF9F0A;
+  --orange-t:rgba(255,159,10,.12);
+  --orange-ink:#B26A00;
+  --red:#FF453A;
+  --red-t:rgba(255,69,58,.12);
   --purple:#AF52DE;
   --teal:#5AC8FA;
-  --fill:#7878801F;
+  --fill:rgba(118,118,128,.12);
+  --field-bg:#EFF1F5;
+  --field-line:rgba(17,17,20,.06);
+
+  /* 交互语义 */
+  --ring-track:#E5E5EA;
+  --cal-sel-bg:#000000;
+  --cal-sel-fg:#FFFFFF;
+  --focus-ring:#000000;
+  --btn-pri-bg:#000000;
+  --btn-pri-fg:#FFFFFF;
+  --btn-pri-sh:0 6px 18px -8px rgba(0,0,0,.35);
+  --sheet-bg:#F2F2F7;
+  --done-bg:#FBFEF7;
 
   /* 尺寸 */
-  --r:14px;
-  --r-lg:18px;
+  --r:16px;
+  --r-lg:20px;
   --gap:16px;
   --tabh:50px;
 
@@ -39,19 +60,71 @@
   --hdrh:52px;
 
   /* 阴影 —— 很轻，只负责把白卡从灰底上抬起来 */
-  --sh-1:0 1px 2px rgba(18,24,40,.04), 0 4px 12px -6px rgba(18,24,40,.10);
-  --sh-2:0 2px 6px rgba(18,24,40,.06), 0 14px 32px -12px rgba(18,24,40,.16);
-  --sh-blue:0 3px 12px -2px rgba(0,122,255,.34);
+  --sh-1:0 1px 2px rgba(0,0,0,.03), 0 8px 24px -14px rgba(0,0,0,.16);
+  --sh-2:0 2px 6px rgba(0,0,0,.05), 0 16px 40px -18px rgba(0,0,0,.22);
+  --sh-blue:0 3px 12px -2px rgba(0,0,0,.18);
 
-  /* 部位色 —— 一个部位一个色相，训练页和计划页共用，靠颜色分辨不用读字 */
-  --m-chest:#0062CC;    --m-chest-t:#EAF2FF;
-  --m-back:#4340B8;     --m-back-t:#EEEDFC;
-  --m-shoulder:#B26A00; --m-shoulder-t:#FFF4E6;
-  --m-tri:#1D8199;      --m-tri-t:#E6F6F9;
-  --m-bi:#8B3BAE;       --m-bi-t:#F7EDFC;
-  --m-leg:#1E9E44;      --m-leg-t:#E9F9EE;
-  --m-glute:#CC2043;    --m-glute-t:#FFEBF0;
-  --m-core:#8A4B22;     --m-core-t:#F8EEE7;
+  /* 部位色 —— 低饱和静态归类，不再用高饱和色抢动作信号 */
+  --m-chest:#8A5A4A;    --m-chest-t:#F2E7E3;
+  --m-back:#4A5F7A;     --m-back-t:#E6EBF2;
+  --m-shoulder:#7A6435; --m-shoulder-t:#F2EDE0;
+  --m-tri:#3F6B6B;      --m-tri-t:#E3EFEF;
+  --m-bi:#6B4A7A;       --m-bi-t:#EEE8F2;
+  --m-leg:#3F6B4A;      --m-leg-t:#E6F0E8;
+  --m-glute:#7A4A5A;    --m-glute-t:#F2E6EA;
+  --m-core:#6B5A45;     --m-core-t:#EFEAE3;
+}
+
+/* 深色 —— 训练 / 夜间共用。白卡换成 #1C1C1E，荧光保留为唯一动作信号，
+   蓝色提亮到系统深色 #0A84FF；黑底上的主按钮改用荧光，避免黑按钮消失。 */
+html[data-theme="dark"]{
+  --bg:#000000;
+  --card:#1C1C1E;
+  --card2:#2C2C2E;
+  --card3:#3A3A3C;
+  --tx:#FFFFFF;
+  --tx2:rgba(235,235,245,.72);
+  --tx3:rgba(235,235,245,.48);
+  --line:rgba(84,84,88,.55);
+  --line2:rgba(84,84,88,.32);
+
+  --blue:#0A84FF;
+  --blue-d:#0071E3;
+  --blue-t:rgba(10,132,255,.18);
+  --green:#30D158;
+  --green-d:#30D158;
+  --green-t:rgba(48,209,88,.16);
+  --orange:#FF9F0A;
+  --orange-t:rgba(255,159,10,.18);
+  --orange-ink:#FFB340;
+  --red:#FF453A;
+  --red-t:rgba(255,69,58,.18);
+  --fill:rgba(120,120,128,.32);
+  --field-bg:#2C2C2E;
+  --field-line:rgba(255,255,255,.10);
+
+  --ring-track:rgba(235,235,245,.18);
+  --cal-sel-bg:#FFFFFF;
+  --cal-sel-fg:#000000;
+  --focus-ring:#FFFFFF;
+  --btn-pri-bg:var(--accent);
+  --btn-pri-fg:#000000;
+  --btn-pri-sh:0 6px 18px -8px rgba(216,255,71,.36);
+  --sheet-bg:#1C1C1E;
+  --done-bg:rgba(216,255,71,.05);
+
+  --sh-1:0 1px 2px rgba(0,0,0,.30), 0 8px 24px -14px rgba(0,0,0,.50);
+  --sh-2:0 2px 6px rgba(0,0,0,.40), 0 18px 44px -20px rgba(0,0,0,.65);
+  --sh-blue:0 3px 12px -2px rgba(0,0,0,.45);
+
+  --m-chest:#D8B8AC;    --m-chest-t:rgba(216,184,172,.16);
+  --m-back:#A9BED6;     --m-back-t:rgba(169,190,214,.16);
+  --m-shoulder:#D6C596; --m-shoulder-t:rgba(214,197,150,.16);
+  --m-tri:#9CC7C7;      --m-tri-t:rgba(156,199,199,.16);
+  --m-bi:#C7AEDC;       --m-bi-t:rgba(199,174,220,.16);
+  --m-leg:#A6CDB2;      --m-leg-t:rgba(166,205,178,.16);
+  --m-glute:#D8AEBC;    --m-glute-t:rgba(216,174,188,.16);
+  --m-core:#CBB89A;     --m-core-t:rgba(203,184,154,.16);
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
@@ -59,7 +132,8 @@
 [hidden]{display:none !important}
 /* touch-action:manipulation = 只干掉「双击缩放」，单指滚动照常。
    这里千万不能写 none —— 那会把页面滚动一起杀掉。 */
-html{-webkit-text-size-adjust:100%; background:var(--bg); touch-action:manipulation}
+html{-webkit-text-size-adjust:100%; background:var(--bg); touch-action:manipulation; color-scheme:light}
+html[data-theme="dark"]{color-scheme:dark}
 body{
   margin:0; background:var(--bg); color:var(--tx); touch-action:manipulation;
   font:17px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
@@ -67,7 +141,7 @@ body{
   text-rendering:optimizeLegibility;
   padding-bottom:calc(var(--tabh) + var(--safe-b) + 24px);
   overscroll-behavior-y:none;
-  transition:padding-bottom .2s;
+  transition:padding-bottom .2s, background-color .3s ease, color .3s ease;
 }
 /* 休息倒计时浮起来的时候，再让出它的高度，最后一组别被盖住 */
 body.resting{padding-bottom:calc(var(--tabh) + var(--safe-b) + 78px)}
@@ -80,13 +154,15 @@ h1,h2,h3,h4,p{margin:0}
 #hdr{
   position:sticky; top:0; z-index:60;
   padding-top:var(--safe-t);
-  background:rgba(245,246,248,.78);
+  background:rgba(242,242,247,.80);
   -webkit-backdrop-filter:saturate(180%) blur(20px);
   backdrop-filter:saturate(180%) blur(20px);
   border-bottom:.5px solid transparent;
-  transition:border-color .2s, background .2s;
+  transition:border-color .2s, background .3s ease;
 }
-#hdr.scrolled{border-bottom-color:var(--line); background:rgba(245,246,248,.92)}
+#hdr.scrolled{border-bottom-color:var(--line); background:rgba(242,242,247,.94)}
+html[data-theme="dark"] #hdr{background:rgba(0,0,0,.74)}
+html[data-theme="dark"] #hdr.scrolled{background:rgba(0,0,0,.90)}
 .hdr-in{
   height:var(--hdrh); display:flex; align-items:center; gap:10px;
   padding:0 var(--gap);
@@ -97,42 +173,43 @@ h1,h2,h3,h4,p{margin:0}
   transition:font-size .18s ease;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-#hdr:not(.scrolled) #hdrTitle{font-size:30px; font-weight:700; letter-spacing:-.9px}
+#hdr:not(.scrolled) #hdrTitle{font-size:32px; font-weight:700; letter-spacing:-1.1px}
 .hdr-sub{
   font-size:13px; color:var(--tx2); white-space:nowrap;
   opacity:0; transition:opacity .18s;
 }
 #hdr.scrolled .hdr-sub{opacity:1}
 
-/* AH 品牌标记 —— 顶栏左上角的小方块，就是主屏图标的缩小版：白底 + 墨黑标记。
+/* AH 母品牌标记 —— 顶栏左上角的小方块，就是主屏图标的缩小版：白底 + 墨黑标记。
    用内联矢量而不是图片，所以任何屏幕倍数下都不糊。
-   宽高永远按标识本身的比例 404.5 : 394 给，绝不拉伸。 */
+   宽高按新标识本身的比例 628 : 659 给，绝不拉伸。 */
 .brand{
   flex:none; align-self:center; margin-right:4px;
   width:34px; height:34px; border-radius:10px;
   display:flex; align-items:center; justify-content:center;
   background:#fff; color:var(--tx);
-  box-shadow:0 1px 2px rgba(18,24,40,.10), 0 3px 8px -4px rgba(18,24,40,.16);
-  transition:width .18s ease, height .18s ease, border-radius .18s ease;
+  box-shadow:0 1px 2px rgba(0,0,0,.10), 0 3px 8px -4px rgba(0,0,0,.18);
+  transition:width .18s ease, height .18s ease, border-radius .18s ease, background .3s ease, color .3s ease;
 }
 .brand svg{
-  width:21.8px; height:21.2px; fill:currentColor; display:block;
+  width:20.5px; height:21.5px; fill:currentColor; display:block;
   transition:width .18s ease, height .18s ease;
 }
 /* 滚动后顶栏收窄，标记跟着缩一号，和标题一起变小 */
 #hdr.scrolled .brand{width:26px; height:26px; border-radius:8px}
-#hdr.scrolled .brand svg{width:16.7px; height:16.2px}
+#hdr.scrolled .brand svg{width:15.6px; height:16.4px}
+html[data-theme="dark"] .brand{background:rgba(235,235,245,.12); color:#fff; box-shadow:0 0 0 .5px rgba(255,255,255,.10)}
 
 /* 加载页：沿用 App 现有的软底方块，只把里面的 emoji 换成品牌标记 */
-.ic-ah{width:41px; height:40px; fill:currentColor; color:var(--tx); display:block}
+.ic-ah{width:38px; height:40px; fill:currentColor; color:var(--tx); display:block}
 
 .hdr-btn{
   width:38px; height:38px; border-radius:50%; flex:none;
   display:flex; align-items:center; justify-content:center;
-  color:var(--blue); background:transparent;
-  transition:background .15s, transform .12s;
+  color:var(--tx); background:transparent;
+  transition:background .15s, transform .12s, color .3s ease;
 }
-.hdr-btn:active{background:var(--blue-t); transform:scale(.94)}
+.hdr-btn:active{background:var(--fill); transform:scale(.94)}
 
 /* ---------------- 主视图 ---------------- */
 #view{padding:8px 0 0}
@@ -175,28 +252,31 @@ h1,h2,h3,h4,p{margin:0}
   height:calc(var(--tabh) + var(--safe-b));
   padding-bottom:var(--safe-b);
   display:flex;
-  background:rgba(252,252,253,.84);
+  background:rgba(255,255,255,.86);
   -webkit-backdrop-filter:saturate(180%) blur(22px);
   backdrop-filter:saturate(180%) blur(22px);
-  border-top:.5px solid rgba(0,0,0,.07);
+  border-top:.5px solid var(--line);
+  transition:background .3s ease, border-color .3s ease;
 }
 #tabs button{
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:3px; color:#989AA4; font-size:10.5px; font-weight:500;
+  gap:3px; color:var(--tx3); font-size:12px; font-weight:500;
   transition:color .15s, transform .12s;
 }
 #tabs button svg{width:25px; height:25px; display:block; stroke-width:1.7}
-#tabs button.on{color:var(--blue); font-weight:600}
-#tabs button.on svg{stroke:var(--blue); stroke-width:1.9}
+#tabs button.on{color:var(--tx); font-weight:600}
+#tabs button.on svg{stroke:var(--tx); stroke-width:1.9}
 #tabs button:active{transform:scale(.92)}
+html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:var(--line)}
 
 /* ---------------- 动作卡（训练页） ---------------- */
 .ex{
   background:var(--card); border-radius:var(--r);
   margin:0 var(--gap) 12px; overflow:hidden;
   box-shadow:var(--sh-1);
+  transition:background .3s ease;
 }
-.ex.done{background:#FBFEFC}
+.ex.done{background:var(--done-bg)}
 .ex-hd{
   display:flex; align-items:flex-start; gap:10px;
   padding:14px var(--gap) 10px;
@@ -206,18 +286,19 @@ h1,h2,h3,h4,p{margin:0}
    现在改成实底深色，和浅灰方块的组号一眼就能区分。 */
 .ex-i{
   flex:none; width:24px; height:24px; border-radius:8px;
-  background:var(--tx); color:#fff;
+  background:var(--tx); color:var(--card);
   font-size:12.5px; font-weight:700;
   display:flex; align-items:center; justify-content:center;
   margin-top:1px;
+  transition:background .3s ease, color .3s ease;
 }
-.ex.done .ex-i{background:var(--green); color:#fff; box-shadow:0 2px 6px -1px rgba(52,199,89,.5)}
+.ex.done .ex-i{background:var(--accent); color:var(--accent-fg); box-shadow:0 2px 6px -1px rgba(216,255,71,.45)}
 .ex-nm{flex:1; min-width:0; font-size:17px; font-weight:650; letter-spacing:-.25px; line-height:1.3}
 .ex-nm .pr{
   display:inline-block; vertical-align:2px; margin-left:6px;
   font-size:10px; font-weight:700; letter-spacing:.3px;
-  color:#fff; background:var(--orange); padding:1.5px 6px; border-radius:5px;
-  box-shadow:0 1px 4px -1px rgba(255,149,0,.6);
+  color:var(--accent-fg); background:var(--accent); padding:1.5px 6px; border-radius:5px;
+  box-shadow:0 1px 4px -1px rgba(216,255,71,.5);
 }
 .ex-set{
   flex:none; font-size:13px; font-weight:600; color:var(--blue);
@@ -232,7 +313,7 @@ h1,h2,h3,h4,p{margin:0}
   padding:4px var(--gap) 0;
 }
 .cue-chip{font-size:12.5px; line-height:1.4; color:var(--tx2)}
-.cue-chip b{color:#3A3A40; font-weight:650}
+.cue-chip b{color:var(--tx); font-weight:650}
 .cue-dot{color:var(--tx3); font-size:12px; padding:0 7px}
 
 /* 左缩进 = gap(16) + 编号(24) + 间距(10) = 50，和动作名对齐 */
@@ -242,7 +323,7 @@ h1,h2,h3,h4,p{margin:0}
 }
 /* flex:1 是必须的 —— 不写的话文字会按内容宽度顶出去，把右边按钮挤到第二行 */
 .ex-last .el-main{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.ex-last b{color:#3A3A40; font-weight:600}
+.ex-last b{color:var(--tx); font-weight:600}
 
 /* 组输入表 */
 .sets{width:100%; border-collapse:separate; border-spacing:0; margin-top:12px}
@@ -258,29 +339,29 @@ h1,h2,h3,h4,p{margin:0}
   width:28px; height:28px; border-radius:9px; background:var(--card3);
   color:var(--tx2); font-size:12.5px; font-weight:700;
   display:inline-flex; align-items:center; justify-content:center;
-  transition:background .15s, color .15s, transform .12s;
+  transition:background .15s, color .15s, transform .12s, box-shadow .15s;
 }
 .sn:active{transform:scale(.9)}
-.sn.warm{background:var(--orange-t); color:#B26A00}
-.sn.on{background:var(--green); color:#fff; box-shadow:0 2px 7px -1px rgba(52,199,89,.55)}
+.sn.warm{background:var(--orange-t); color:var(--orange-ink)}
+.sn.on{background:var(--accent); color:var(--accent-fg); box-shadow:0 2px 7px -1px rgba(216,255,71,.5)}
 /* 输入格：浅灰「凹槽」+ 内描边。底色要够深才看得出是个输入框 */
 .cell{
   width:100%; height:40px; border-radius:10px; text-align:center;
-  background:#EFF1F5; border:none;
-  box-shadow:inset 0 0 0 1px rgba(17,17,20,.045);
+  background:var(--field-bg); border:none;
+  box-shadow:inset 0 0 0 1px var(--field-line);
   font-size:16.5px; font-weight:600; padding:0 2px;
   font-variant-numeric:tabular-nums;
   -webkit-appearance:none; appearance:none;
-  transition:background .15s, box-shadow .15s;
+  transition:background .15s, box-shadow .15s, color .3s ease;
 }
 .cell:focus{
-  outline:none; background:#fff;
-  box-shadow:inset 0 0 0 1.5px var(--blue), 0 0 0 3.5px rgba(0,122,255,.13);
+  outline:none; background:var(--card);
+  box-shadow:inset 0 0 0 1.5px var(--focus-ring), 0 0 0 3.5px rgba(118,118,128,.13);
 }
 .cell::placeholder{color:var(--tx3); font-weight:400; font-size:13px}
 .cell.on{
-  background:var(--green-t); color:var(--green-d);
-  box-shadow:inset 0 0 0 1px rgba(52,199,89,.32);
+  background:var(--accent-soft); color:var(--tx);
+  box-shadow:inset 0 0 0 1px rgba(216,255,71,.42);
 }
 .cell.rir{font-size:14.5px}
 
@@ -292,10 +373,10 @@ h1,h2,h3,h4,p{margin:0}
 }
 .qb{
   flex:none; height:34px; padding:0 11px; border-radius:11px;
-  background:#EFF1F5; color:var(--blue);
+  background:var(--field-bg); color:var(--tx);
   font-size:13.5px; font-weight:600; white-space:nowrap;
-  box-shadow:inset 0 0 0 1px rgba(17,17,20,.045);
-  transition:background .15s, transform .12s;
+  box-shadow:inset 0 0 0 1px var(--field-line);
+  transition:background .15s, transform .12s, color .3s ease;
 }
 .quick .qb{
   width:auto; min-width:0; padding:0 4px; font-size:12.5px;
@@ -306,7 +387,7 @@ h1,h2,h3,h4,p{margin:0}
 /* 小号：弹层里的 ↑ ↓ ✕ 和「全部照上次」 */
 .qb.mini{height:30px; padding:0 9px; font-size:12.5px; border-radius:9px}
 .qb.mini:disabled{opacity:.32}
-.qb.mini.danger{background:#FFEBEE; color:var(--red); box-shadow:inset 0 0 0 1px rgba(255,59,48,.2)}
+.qb.mini.danger{background:var(--red-t); color:var(--red); box-shadow:inset 0 0 0 1px rgba(255,69,58,.22)}
 /* 快捷记录按钮：等宽铺满一行，不要 3+1 那样掉一个下来 */
 .qb-grid{display:grid; gap:8px}
 .qb-grid.g4{grid-template-columns:repeat(4,1fr)}
@@ -321,12 +402,12 @@ h1,h2,h3,h4,p{margin:0}
 .cal-m{font-size:20px; font-weight:700; letter-spacing:-.4px}
 .cal-nav{display:flex; gap:4px}
 .cal-nav button{
-  width:34px; height:34px; border-radius:50%; color:var(--blue);
+  width:34px; height:34px; border-radius:50%; color:var(--tx);
   font-size:17px; display:flex; align-items:center; justify-content:center;
 }
 .cal-nav button:active{background:var(--fill)}
 .cal-nav button:disabled{color:var(--tx3)}
-.cal{background:var(--card); border-radius:var(--r); margin:0 var(--gap); padding:12px 6px 8px; box-shadow:var(--sh-1)}
+.cal{background:var(--card); border-radius:var(--r); margin:0 var(--gap); padding:12px 6px 8px; box-shadow:var(--sh-1); transition:background .3s ease}
 .cal-wk, .cal-grid{display:grid; grid-template-columns:repeat(7,1fr)}
 .cal-wk div{
   text-align:center; font-size:11px; font-weight:600; color:var(--tx3);
@@ -336,45 +417,57 @@ h1,h2,h3,h4,p{margin:0}
   aspect-ratio:1; display:flex; flex-direction:column;
   align-items:center; justify-content:center; gap:3px;
   font-size:15px; position:relative; z-index:0; border-radius:50%;
-  transition:transform .12s;
+  transition:transform .12s, color .3s ease, background .3s ease;
 }
 .cal-d.pad{color:var(--tx3)}
+/* 今天：蓝字 + 4px 小点，不再画外圈 */
 .cal-d.today{color:var(--blue); font-weight:700}
-.cal-d.sel{color:#fff; font-weight:700}
-/* z-index:0 让 .cal-d 自成层叠上下文，蓝底才能垫在数字下面而不是盖住它 */
+.cal-d.today::after{
+  content:""; position:absolute; left:50%; bottom:5px; transform:translateX(-50%);
+  width:4px; height:4px; border-radius:50%; background:var(--blue);
+}
+/* 选中：黑底白字（深色下反转为白底黑字），不再用荧光 */
+.cal-d.sel{color:var(--cal-sel-fg); font-weight:700}
+/* z-index:0 让 .cal-d 自成层叠上下文，底色才能垫在数字下面而不是盖住它 */
 .cal-d.sel::before{
   content:""; position:absolute; inset:2px; border-radius:50%;
-  background:var(--blue); box-shadow:var(--sh-blue);
+  background:var(--cal-sel-bg); box-shadow:0 2px 8px -2px rgba(0,0,0,.22);
   z-index:-1;
 }
-.cal-d .dot{
-  width:5px; height:5px; border-radius:50%; background:var(--green);
-  position:absolute; bottom:5px;
+.cal-d.sel::after{display:none}
+/* 今天正好是选中日：黑底里保留一个蓝点，仍然认得出「今天」 */
+.cal-d.sel.today::after{display:block; background:var(--blue); width:3px; height:3px; bottom:4px}
+.cal-d .cdot{
+  position:absolute; left:50%; bottom:5px; transform:translateX(-50%);
+  width:4px; height:4px; border-radius:50%; background:var(--tx3);
 }
+.cal-d.today .cdot{background:var(--blue)}
+.cal-d.sel .cdot{display:none}
 .cal-d.workout{font-weight:600}
-.cal-d .dtag{
-  position:absolute; bottom:3px; font-size:8px; font-weight:700;
-  color:var(--green); letter-spacing:-.2px;
-}
-.cal-d.sel .dtag{color:rgba(255,255,255,.92)}
+/* 旧的 8px 部位文字标签已改用 4px 点，详情放到日期下方 */
+.cal-d .dtag{display:none}
 
 /* 热力图 */
 .heat{padding:4px var(--gap) 8px}
 .heat-row{display:flex; align-items:center; gap:8px; margin-bottom:9px}
-.heat-lb{width:76px; flex:none; font-size:13px; color:#3A3A40; text-align:right; line-height:1.2}
+.heat-lb{width:76px; flex:none; font-size:13px; color:var(--tx2); text-align:right; line-height:1.2}
 .heat-bars{flex:1; display:flex; gap:3px; align-items:center; min-height:22px; flex-wrap:wrap}
 .heat-b{
   width:11px; height:22px; border-radius:3.5px; background:var(--card3);
 }
-.heat-b.h1{background:#BBD9FF}
-.heat-b.h2{background:#7FB6FF}
+.heat-b.h1{background:rgba(0,122,255,.25)}
+.heat-b.h2{background:rgba(0,122,255,.52)}
 .heat-b.h3{background:var(--blue)}
 .heat-n{font-size:12px; color:var(--tx2); flex:none; width:52px}
 .heat-n b{color:var(--blue); font-weight:600}
+html[data-theme="dark"] .heat-b.h1{background:rgba(10,132,255,.30)}
+html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
 
 /* ---------------- 图表 ---------------- */
-.chart{margin:0 var(--gap); background:var(--card); border-radius:var(--r); padding:15px 8px 8px; box-shadow:var(--sh-1)}
+.chart{margin:0 var(--gap); background:var(--card); border-radius:var(--r); padding:15px 8px 8px; box-shadow:var(--sh-1); transition:background .3s ease}
 .chart svg{display:block; width:100%; height:auto; overflow:visible}
+.chart-grid{stroke:var(--line)}
+.chart-axis{fill:var(--tx3)}
 .chart-t{font-size:15px; font-weight:600; padding:0 8px 10px}
 .chart-t .v{color:var(--blue); font-weight:700; font-variant-numeric:tabular-nums}
 .lg{display:flex; gap:14px; padding:2px 8px 8px; font-size:12px; color:var(--tx2)}
@@ -394,11 +487,13 @@ h1,h2,h3,h4,p{margin:0}
 .ring-wrap{display:flex; align-items:center; justify-content:center; gap:26px; padding:18px 0 6px}
 .ring{position:relative; width:104px; height:104px}
 .ring svg{transform:rotate(-90deg)}
+.ring-track{stroke:var(--ring-track)}
+.ring-fill{transition:stroke .3s ease}
 .ring .rv{
   position:absolute; inset:0; display:flex; flex-direction:column;
   align-items:center; justify-content:center;
 }
-.ring .rv b{font-size:23px; font-weight:700; letter-spacing:-.6px}
+.ring .rv b{font-size:23px; font-weight:700; letter-spacing:-.6px; color:var(--tx)}
 .ring .rv s{text-decoration:none; font-size:11px; color:var(--tx2); margin-top:1px}
 
 /* ---------------- 照片 ---------------- */
@@ -437,12 +532,14 @@ h1,h2,h3,h4,p{margin:0}
 .seg{
   display:flex; background:var(--card3); border-radius:11px; padding:3px;
   margin:0 var(--gap) 16px;
+  transition:background .3s ease;
 }
 .seg button{
   flex:1; height:34px; border-radius:9px; font-size:13.5px; font-weight:600;
   color:var(--tx2); transition:background .18s, color .18s, box-shadow .18s;
 }
-.seg button.on{background:#fff; color:var(--tx); box-shadow:var(--sh-1)}
+.seg button.on{background:var(--card); color:var(--tx); box-shadow:0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04)}
+html[data-theme="dark"] .seg button.on{background:#48484A; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35)}
 
 /* ---------------- 底部弹层 ---------------- */
 .sheet-wrap{position:fixed; inset:0; z-index:200}
@@ -453,20 +550,28 @@ h1,h2,h3,h4,p{margin:0}
 .sheet-wrap.on .sheet-mask{opacity:1}
 .sheet{
   position:absolute; left:0; right:0; bottom:0;
-  max-height:92vh; background:var(--bg);
-  border-radius:22px 22px 0 0;
+  max-height:92vh; background:var(--sheet-bg);
+  border-radius:26px 26px 0 0;
   display:flex; flex-direction:column;
   transform:translateY(101%);
-  transition:transform .34s cubic-bezier(.32,.72,0,1);
+  transition:transform .34s cubic-bezier(.32,.72,0,1), background .3s ease;
   padding-bottom:var(--safe-b);
-  box-shadow:0 -8px 40px rgba(18,24,40,.18);
+  box-shadow:0 -8px 40px rgba(0,0,0,.18);
 }
 .sheet-wrap.on .sheet{transform:translateY(0)}
 .sheet-grip{
   width:38px; height:5px; border-radius:3px;
-  background:rgba(17,17,20,.16);
+  background:var(--tx3); opacity:.35;
   margin:9px auto 0; flex:none;
 }
+html[data-theme="dark"] .sheet{box-shadow:0 -8px 40px rgba(0,0,0,.55)}
+/* 深色弹层里，卡片要比弹层底色亮一级，否则整块糊在一起 */
+html[data-theme="dark"] .sheet .card,
+html[data-theme="dark"] .sheet .food,
+html[data-theme="dark"] .sheet .meal-total{background:#2C2C2E}
+html[data-theme="dark"] .sheet .btn.sec,
+html[data-theme="dark"] .sheet .btn.gray,
+html[data-theme="dark"] .sheet .btn.danger{background:#2C2C2E}
 .sheet-hd{
   display:flex; align-items:center; gap:8px; padding:8px var(--gap) 10px; flex:none;
 }
@@ -474,6 +579,13 @@ h1,h2,h3,h4,p{margin:0}
 .sheet-act{font-size:17px; color:var(--blue); padding:6px 2px}
 .sheet-act.strong{font-weight:700}
 .sheet-body{overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:20px}
+
+/* 设置里的外观选项 */
+.theme-opt .tick{
+  flex:none; width:20px; text-align:right;
+  color:var(--blue); font-size:17px; font-weight:700; opacity:0;
+}
+.theme-opt.sel .tick{opacity:1}
 
 /* ---------------- 表单 ---------------- */
 .fld{display:flex; align-items:center; gap:12px; padding:11px var(--gap); min-height:44px; position:relative}
@@ -489,16 +601,16 @@ h1,h2,h3,h4,p{margin:0}
 /* ---------------- 按钮 ---------------- */
 .btn{
   display:block; width:100%; height:50px; border-radius:var(--r);
-  background:linear-gradient(180deg,#2E90FF,#007AFF); color:#fff;
+  background:var(--btn-pri-bg); color:var(--btn-pri-fg);
   font-size:17px; font-weight:600; letter-spacing:-.2px;
   text-align:center; line-height:50px;
-  box-shadow:var(--sh-blue);
-  transition:transform .12s, box-shadow .15s, filter .15s;
+  box-shadow:var(--btn-pri-sh);
+  transition:transform .12s, box-shadow .15s, filter .15s, background .3s ease, color .3s ease;
 }
-.btn:active{transform:scale(.985); filter:brightness(.95); box-shadow:0 1px 5px -1px rgba(0,122,255,.4)}
-.btn.sec{background:var(--card); color:var(--blue); box-shadow:var(--sh-1)}
-.btn.gray{background:var(--card); color:var(--tx); box-shadow:var(--sh-1)}
-.btn.danger{background:var(--card); color:var(--red); box-shadow:var(--sh-1)}
+.btn:active{transform:scale(.985); filter:brightness(.96)}
+.btn.sec{background:var(--card); color:var(--tx); box-shadow:var(--sh-1), inset 0 0 0 .5px var(--line)}
+.btn.gray{background:var(--card); color:var(--tx); box-shadow:var(--sh-1), inset 0 0 0 .5px var(--line)}
+.btn.danger{background:var(--card); color:var(--red); box-shadow:var(--sh-1), inset 0 0 0 .5px var(--line)}
 .btn.sm{height:42px; line-height:42px; font-size:15px; border-radius:12px}
 
 /* iOS 开关 */
@@ -511,7 +623,7 @@ h1,h2,h3,h4,p{margin:0}
   border-radius:50%; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.2);
   transition:transform .2s;
 }
-.sw.on{background:var(--green)}
+.sw.on{background:var(--accent)}
 .sw.on::after{transform:translateX(20px)}
 
 /* ---------------- 空状态 ---------------- */
@@ -521,8 +633,9 @@ h1,h2,h3,h4,p{margin:0}
   width:68px; height:68px; border-radius:22px; margin:0 auto 14px;
   display:flex; align-items:center; justify-content:center;
   font-size:31px; line-height:1;
-  background:linear-gradient(180deg,#F1F2F6,#E7E9EF);
-  box-shadow:inset 0 0 0 1px rgba(17,17,20,.045);
+  background:var(--card2);
+  box-shadow:inset 0 0 0 .5px var(--line);
+  transition:background .3s ease;
 }
 .empty .t{font-size:16px; font-weight:650; color:var(--tx); margin-bottom:6px; letter-spacing:-.2px}
 .empty .d{font-size:13.5px; line-height:1.6}
@@ -538,7 +651,7 @@ h1,h2,h3,h4,p{margin:0}
 }
 .rest-fill{
   position:absolute; left:0; top:0; bottom:0; width:0;
-  background:rgba(0,122,255,.45);
+  background:rgba(216,255,71,.38);
 }
 .rest-in{position:relative; display:flex; align-items:center; gap:9px; padding:11px 14px}
 .rest-t{
@@ -566,7 +679,10 @@ h1,h2,h3,h4,p{margin:0}
   animation:tin .22s ease;
 }
 @keyframes tin{from{opacity:0; transform:translate(-50%,8px)}to{opacity:1; transform:translate(-50%,0)}}
-.toast.pr{background:linear-gradient(135deg,#FF9500,#FF6B00)}
+.toast.pr{background:var(--accent); color:var(--accent-fg); font-weight:600}
+html[data-theme="dark"] .toast{background:rgba(250,250,252,.94); color:#1C1C1E}
+html[data-theme="dark"] .toast.pr{background:var(--accent); color:var(--accent-fg)}
+html[data-theme="dark"] .rest-bar{box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 0 .5px rgba(255,255,255,.10)}
 
 /* ---------------- 图片查看 ---------------- */
 .lightbox{
@@ -591,8 +707,8 @@ h1,h2,h3,h4,p{margin:0}
   display:inline-block; font-size:11px; font-weight:700; letter-spacing:.3px;
   padding:1.5px 7px; border-radius:6px; background:var(--blue-t); color:var(--blue);
 }
-.badge.g{background:var(--green-t); color:var(--green-d)}
-.badge.o{background:var(--orange-t); color:#B26A00}
+.badge.g{background:var(--blue-t); color:var(--blue)}
+.badge.o{background:var(--orange-t); color:var(--orange-ink)}
 
 /* ---------------- 部位配色 ----------------
    一个部位一个色相，训练页 / 计划页 / 编辑弹层共用同一套。
