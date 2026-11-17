@@ -365,6 +365,7 @@ var U = {                       // 界面状态（不持久化）
   urls: [],                     // 照片 objectURL 缓存
   mealDraft: null,              // 「记一顿」的草稿，来回切层不丢已选的东西
   foodMg: false,                // 「记一顿」里是否开着「管理常吃」模式
+  foodCat: "staple",            // 「全部食物」里选中的分类
   dietPlanOpen: false,          // 饮食页底部「每天怎么吃」速查卡是否展开
   planDay: null,                // 计划页顶部选中的那一天（d1–d4 / rest）
   pickedDay: null,              // 「换一天」选的训练日；还没真正开始训练时不写 logs
@@ -862,6 +863,7 @@ function buildTabs() {
    ============================================================ */
 function renderCurrentTab() {
   if (!READY) return;
+  if (calPopEl) closeCalPicker(true);   /* 换页 / 换月时，年月下拉不该浮在上面 */
   U.urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
   U.urls = [];
   var v = $("#view");
@@ -1106,53 +1108,143 @@ function restoreFocus() {
 }
 
 /* ---------------- 日历 ---------------- */
-function calShift(delta) {
-  if (U.tab !== "cal" || U.calSeg !== "month") return;
+var calBusy = false, calBusyT = null;
+var calPopEl = null, calPopMask = null, calPopY = null;
+
+function calTrackEl() { return document.getElementById("calTrack"); }
+
+/* 目标月份（含上下限）。越界返回 null。 */
+function calNextDate(dir) {
   var m = U.calMonth;
-  var next = new Date(m.getFullYear(), m.getMonth() + delta, 1);
-  var now = new Date();
-  var cur = new Date(now.getFullYear(), now.getMonth(), 1);
-  if (next > cur) next = cur;
-  if (next.getFullYear() < 2000) next = new Date(2000, 0, 1);
-  U.calMonth = next;
-  U.calPickYear = next.getFullYear();
-  render();
+  var next = new Date(m.getFullYear(), m.getMonth() + dir, 1);
+  var now = new Date(), cur = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (next > cur) return null;
+  if (next.getFullYear() < 2000) return null;
+  return next;
 }
-function openCalPicker() {
-  if (!U.calPickYear) U.calPickYear = U.calMonth.getFullYear();
-  var y = U.calPickYear;
+
+/* 轨道滑到相邻那一页，动画结束再真的换月份重绘。
+   因为三页是连在一起的一条轨道，看起来就是日历纸往左 / 往右滑走。 */
+function calAnimateCommit(dir, next) {
+  var track = calTrackEl();
+  if (!track) { U.calMonth = next; U.calPickYear = next.getFullYear(); render(); return; }
+  calBusy = true;
+  track.style.transition = "transform .36s cubic-bezier(.32,.72,0,1)";
+  track.style.transform = "translateX(" + (-(1 + dir) * 33.3333).toFixed(4) + "%)";
+  clearTimeout(calBusyT);
+  calBusyT = setTimeout(function () {
+    calBusy = false;
+    U.calMonth = next;
+    U.calPickYear = next.getFullYear();
+    render();
+  }, 370);
+}
+
+/* 已经到头了（比如当前月再往后）—— 拉一下再弹回来。 */
+function calBounce(dir) {
+  var track = calTrackEl();
+  if (!track) return;
+  var w = (track.parentNode.clientWidth || 320);
+  track.style.transition = "transform .18s cubic-bezier(.32,.72,0,1)";
+  track.style.transform = "translateX(calc(-33.3333% + " + (-dir * w * 0.05).toFixed(1) + "px))";
+  setTimeout(function () {
+    if (calTrackEl() !== track) return;
+    track.style.transition = "transform .3s cubic-bezier(.32,.72,0,1)";
+    track.style.transform = "translateX(-33.3333%)";
+  }, 160);
+}
+
+function calShift(delta) {
+  if (U.tab !== "cal" || U.calSeg !== "month" || calBusy) return;
+  var next = calNextDate(delta);
+  if (!next) { calBounce(delta); return; }
+  calAnimateCommit(delta, next);
+}
+
+/* 年月下拉：一个浮在标题下方的小窗，不再从底部弹整屏。 */
+function closeCalPicker(instant) {
+  var p = calPopEl, mk = calPopMask;
+  calPopEl = null; calPopMask = null;
+  if (mk && mk.parentNode) mk.parentNode.removeChild(mk);
+  if (!p) return;
+  p.classList.remove("on");
+  if (instant) { if (p.parentNode) p.parentNode.removeChild(p); }
+  else setTimeout(function () { if (p.parentNode) p.parentNode.removeChild(p); }, 200);
+}
+
+function renderCalPop() {
+  var pop = calPopEl;
+  if (!pop) return;
   var now = new Date(), curY = now.getFullYear(), curM = now.getMonth();
-  var h = '<div class="cal-pick">' +
-    '<div class="cal-pick-year">' +
-      '<button data-act="calPickYear" data-v="-1" aria-label="上一年">‹</button>' +
-      '<b>' + y + '</b>' +
-      '<button data-act="calPickYear" data-v="1" aria-label="下一年"' + (y >= curY ? " disabled" : "") + '>›</button>' +
-    '</div><div class="cal-pick-grid">' +
+  var y = calPopY;
+  pop.innerHTML = '<div class="cal-pop-y">' +
+    '<button data-cpy="-1"' + (y <= 2000 ? " disabled" : "") + ' aria-label="上一年">‹</button>' +
+    '<b>' + y + " 年</b>" +
+    '<button data-cpy="1"' + (y >= curY ? " disabled" : "") + ' aria-label="下一年">›</button>' +
+    '</div><div class="cal-pop-grid">' +
     MON.map(function (m, i) {
       var future = (y > curY) || (y === curY && i > curM);
       var on = (U.calMonth.getFullYear() === y && U.calMonth.getMonth() === i);
-      return '<button data-act="calPickMonth" data-m="' + i + '" class="' + (on ? "on" : "") + '"' + (future ? " disabled" : "") + '>' + m + '</button>';
-    }).join("") +
-    '</div></div>';
-  openSheet("选择年月", h, null, "关闭");
-  $("#sheetBody").onclick = function (e) {
-    var t = e.target.closest("[data-act]"); if (!t) return;
-    var a = t.getAttribute("data-act");
-    if (a === "calPickYear") {
-      var v = parseInt(t.getAttribute("data-v"), 10) || 0;
-      var ny = y + v;
-      if (ny > curY) ny = curY;
-      if (ny < 2000) ny = 2000;
-      U.calPickYear = ny;
-      openCalPicker();
-    } else if (a === "calPickMonth") {
-      var mm = parseInt(t.getAttribute("data-m"), 10) || 0;
-      U.calMonth = new Date(y, mm, 1);
-      U.calPickYear = y;
-      closeSheet();
+      return '<button data-cpm="' + i + '" class="' + (on ? "on" : "") + '"' +
+        (future ? " disabled" : "") + ">" + m + "</button>";
+    }).join("") + "</div>";
+  pop.onclick = function (e) {
+    var yb = e.target.closest("[data-cpy]");
+    if (yb && !yb.disabled) {
+      calPopY = clamp(calPopY + (parseInt(yb.getAttribute("data-cpy"), 10) || 0), 2000, curY);
+      renderCalPop();
+      positionCalPop();
+      return;
+    }
+    var mb = e.target.closest("[data-cpm]");
+    if (!mb || mb.disabled) return;
+    var mm = parseInt(mb.getAttribute("data-cpm"), 10) || 0;
+    var nm = new Date(calPopY, mm, 1);
+    closeCalPicker();
+    if (nm.getTime() !== U.calMonth.getTime()) {
+      U.calMonth = nm;
+      U.calPickYear = nm.getFullYear();
       render();
     }
   };
+}
+
+function positionCalPop() {
+  var pop = calPopEl;
+  if (!pop) return;
+  var pad = 12;
+  var w = Math.min(288, window.innerWidth - pad * 2);
+  var anchor = document.querySelector(".cal-m");
+  var top = 70, left = (window.innerWidth - w) / 2;
+  if (anchor) {
+    var r = anchor.getBoundingClientRect();
+    top = r.bottom + 8;
+    left = r.left - 6;
+  }
+  left = clamp(left, pad, Math.max(pad, window.innerWidth - w - pad));
+  pop.style.width = w + "px";
+  pop.style.left = left + "px";
+  var hgt = pop.offsetHeight || 240;
+  if (top + hgt > window.innerHeight - pad) top = Math.max(pad, window.innerHeight - hgt - pad);
+  pop.style.top = top + "px";
+}
+
+function openCalPicker() {
+  if (U.tab !== "cal" || U.calSeg !== "month") return;
+  closeCalPicker(true);
+  calPopY = U.calMonth.getFullYear();
+  var mk = document.createElement("div");
+  mk.className = "cal-pop-mask";
+  mk.addEventListener("click", function () { closeCalPicker(); });
+  document.body.appendChild(mk);
+  calPopMask = mk;
+  var pop = document.createElement("div");
+  pop.className = "cal-pop";
+  document.body.appendChild(pop);
+  calPopEl = pop;
+  renderCalPop();
+  positionCalPop();
+  requestAnimationFrame(function () { if (calPopEl === pop) pop.classList.add("on"); });
 }
 function viewCal() {
   var h = "";
@@ -1167,19 +1259,14 @@ function viewCal() {
   return h;
 }
 
-function calMonthHTML() {
-  var d = U.calMonth, y = d.getFullYear(), m = d.getMonth();
+/* 单独一个月的「星期表头 + 日期格」，放在轨道的某一页里 */
+function calPageHTML(y, m) {
   var first = new Date(y, m, 1), startWd = first.getDay();
   var daysIn = new Date(y, m + 1, 0).getDate();
   var prevDays = new Date(y, m, 0).getDate();
   var today = ds();
-  var now = new Date();
-  var canNext = !(y === now.getFullYear() && m === now.getMonth());
-
-  var h = '<div class="cal-hd"><div class="cal-m" data-longpress="calPick">' + y + "年" + (m + 1) + "月</div>";
-  h += '<div class="cal-nav"><button data-act="calPrev">‹</button>';
-  h += '<button data-act="calNext"' + (canNext ? "" : " disabled") + ">›</button></div></div>";
-  h += '<div class="cal"><div class="cal-wk">' + WD.map(function (w) { return "<div>" + w + "</div>"; }).join("") + "</div>";
+  var h = '<div class="cal-page"><div class="cal-wk">' +
+    WD.map(function (w) { return "<div>" + w + "</div>"; }).join("") + "</div>";
   h += '<div class="cal-grid">';
   for (var i = startWd - 1; i >= 0; i--) h += '<div class="cal-d pad">' + (prevDays - i) + "</div>";
   for (var dd = 1; dd <= daysIn; dd++) {
@@ -1194,6 +1281,27 @@ function calMonthHTML() {
   }
   var tail = (7 - ((startWd + daysIn) % 7)) % 7;
   for (var t = 1; t <= tail; t++) h += '<div class="cal-d pad">' + t + "</div>";
+  h += "</div></div>";
+  return h;
+}
+
+function calMonthHTML() {
+  var d = U.calMonth, y = d.getFullYear(), m = d.getMonth();
+  var now = new Date();
+  var canNext = !(y === now.getFullYear() && m === now.getMonth());
+  var prev = new Date(y, m - 1, 1), next = new Date(y, m + 1, 1);
+
+  var h = '<div class="cal-hd">' +
+    '<button class="cal-m" data-act="calPickOpen" aria-label="选择年月">' + y + "年" + (m + 1) + "月" +
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"/></svg></button>' +
+    '<div class="cal-nav"><button data-act="calPrev" aria-label="上个月">‹</button>' +
+    '<button data-act="calNext"' + (canNext ? "" : " disabled") + ' aria-label="下个月">›</button></div></div>';
+
+  /* 三页连成一条轨道：上个月 / 本月 / 下个月 */
+  h += '<div class="cal"><div class="cal-track" id="calTrack">';
+  h += calPageHTML(prev.getFullYear(), prev.getMonth());
+  h += calPageHTML(y, m);
+  h += calPageHTML(next.getFullYear(), next.getMonth());
   h += "</div></div>";
 
   /* 选中日详情 */
@@ -1651,20 +1759,58 @@ document.addEventListener("pointermove", function (e) {
   }, { passive: true });
 });
 
+/* 日历左右滑动：手指按住时轨道跟着走，松手后接到相邻那一页。
+   纵向滑动照常滚页面（一开始判断是上下就立刻放手，不抢手势）。 */
 var calSwipe = null;
 document.addEventListener("touchstart", function (e) {
-  if (U.tab !== "cal" || U.calSeg !== "month") return;
+  if (U.tab !== "cal" || U.calSeg !== "month" || calBusy) return;
   if (!e.target.closest(".cal") || e.touches.length !== 1) return;
-  calSwipe = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  var track = calTrackEl();
+  if (!track) return;
+  calSwipe = {
+    x: e.touches[0].clientX, y: e.touches[0].clientY,
+    track: track, w: track.parentNode.clientWidth || 320,
+    horiz: false, moved: false
+  };
 }, { passive: true });
+
+document.addEventListener("touchmove", function (e) {
+  if (!calSwipe) return;
+  var t = e.touches[0];
+  if (!t) { calSwipe = null; return; }
+  var dx = t.clientX - calSwipe.x, dy = t.clientY - calSwipe.y;
+  if (!calSwipe.horiz) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    if (Math.abs(dx) <= Math.abs(dy) * 1.15) { calSwipe = null; return; } /* 纵向：还给页面滚动 */
+    calSwipe.horiz = true;
+    calSwipe.track.style.transition = "none";
+  }
+  if (e.cancelable) e.preventDefault();
+  calSwipe.moved = true;
+  var d = dx;
+  /* 到边界（当前月再往后 / 更早于 2000 年）时加阻尼，滑不动但能感觉到 */
+  if ((d < 0 && !calNextDate(1)) || (d > 0 && !calNextDate(-1))) d *= 0.32;
+  calSwipe.track.style.transform = "translateX(calc(-33.3333% + " + d.toFixed(1) + "px))";
+}, { passive: false });
+
 document.addEventListener("touchend", function (e) {
   if (!calSwipe) return;
-  var t = e.changedTouches[0];
-  var dx = t.clientX - calSwipe.x, dy = t.clientY - calSwipe.y;
+  var sw = calSwipe;
   calSwipe = null;
-  if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+  var t = e.changedTouches[0];
+  var dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+  if (!sw.horiz) return;
   suppressClickUntil = Date.now() + 300;
-  calShift(dx < 0 ? 1 : -1);
+  var threshold = Math.min(48, sw.w * 0.16);
+  if (Math.abs(dx) < threshold) {
+    sw.track.style.transition = "transform .38s cubic-bezier(.32,.72,0,1)";
+    sw.track.style.transform = "translateX(-33.3333%)";
+    return;
+  }
+  var dir = dx < 0 ? 1 : -1;
+  var next = calNextDate(dir);
+  if (!next) { calBounce(dir); return; }
+  calAnimateCommit(dir, next);
 }, { passive: true });
 
 document.addEventListener("click", function (e) {
@@ -1729,6 +1875,7 @@ document.addEventListener("click", function (e) {
     case "planSeg": U.planDay = t.getAttribute("data-v"); render(); break;
     case "calPrev": calShift(-1); break;
     case "calNext": calShift(1); break;
+    case "calPickOpen": openCalPicker(); break;
     case "pickDate": U.selDate = t.getAttribute("data-d"); render(); break;
     case "delLog": delLog(t.getAttribute("data-d")); break;
     case "addWeight": weightSheet(); break;
@@ -1930,8 +2077,7 @@ var Focus = (function () {
     on: false, mode: "focus", eid: null, si: null,
     restEnd: 0, restTotal: 0, restTick: null, warned: false,
     undo: null, undoT: null, lastDone: null,
-    exitArmed: false, exitT: null, clock: null,
-    expanderEl: null, expandT: null
+    exitArmed: false, exitT: null, clock: null, closeT: null
   };
 
   function root() { return $("#focusRoot"); }
@@ -2265,35 +2411,18 @@ var Focus = (function () {
     render();
   }
 
-  /* 从「继续训练」黑卡（或点下去的那个按钮）扩大成整屏。
-     先把一个纯黑块放在原位置，再把它拉到 0/0/100vw/100vh；
-     专注页在下面同步淡入，黑块结束时正好接上。 */
-  function expandFrom(fromEl, done) {
-    if (!fromEl || !fromEl.getBoundingClientRect) { done(); return; }
+  /* 进入 / 退出：整个专注页像 iPhone 打开 App 那样，
+     从点下去的那张卡（主卡 / 按钮）的位置「放大」铺满屏幕，退出时再缩回去。
+     做法只用 transform + opacity —— 不碰 left/top/width/height，
+     所以动画走合成层，不会一卡一卡，也不会像以前那样先盖一块黑布再突然揭开。 */
+  function originOf(fromEl) {
+    if (!fromEl || !fromEl.getBoundingClientRect) return { x: 50, y: 42 };
     var r = fromEl.getBoundingClientRect();
-    var cs = window.getComputedStyle ? getComputedStyle(fromEl) : null;
-    var d = document.createElement("div");
-    d.className = "focus-expander";
-    d.style.left = r.left + "px";
-    d.style.top = r.top + "px";
-    d.style.width = r.width + "px";
-    d.style.height = r.height + "px";
-    d.style.borderRadius = (cs && cs.borderRadius) || "16px";
-    document.body.appendChild(d);
-    S.expanderEl = d;
-    void d.offsetWidth;
-    d.style.left = "0px";
-    d.style.top = "0px";
-    d.style.width = "100vw";
-    d.style.height = "100vh";
-    d.style.borderRadius = "0px";
-    clearTimeout(S.expandT);
-    S.expandT = setTimeout(function () {
-      if (S.expanderEl === d) S.expanderEl = null;
-      d.remove();
-      if (root()) root().style.pointerEvents = "";
-      done();
-    }, 540);
+    var vw = window.innerWidth || 1, vh = window.innerHeight || 1;
+    return {
+      x: clamp((r.left + r.width / 2) / vw * 100, 0, 100),
+      y: clamp((r.top + r.height / 2) / vh * 100, 0, 100)
+    };
   }
 
   function enter(eid, si, origin) {
@@ -2309,14 +2438,20 @@ var Focus = (function () {
     S.restEnd = 0; S.restTotal = 0;
     S.undo = null; S.lastDone = null; S.exitArmed = false; S.warned = false;
     clearTimeout(S.closeT);
-    if (S.expanderEl) {
-      clearTimeout(S.expandT);
-      try { S.expanderEl.remove(); } catch (e) {}
-      S.expanderEl = null;
-    }
+
+    var from = null;
+    if (origin && origin.closest) from = origin.closest(".train-hero") || origin;
+    var o = originOf(from);
+
+    var el = root();
+    el.classList.remove("closing");
+    el.classList.add("instant");        /* 先关掉过渡，把起始状态摆好 */
+    el.classList.remove("on");
+    el.style.transformOrigin = o.x.toFixed(2) + "% " + o.y.toFixed(2) + "%";
+    el.style.pointerEvents = "none";
+    el.hidden = false;
+
     document.body.classList.add("focusing");
-    root().hidden = false;
-    root().classList.remove("on");
     var tc = document.querySelector('meta[name="theme-color"]');
     if (tc) tc.setAttribute("content", "#000000");
     var sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
@@ -2326,15 +2461,12 @@ var Focus = (function () {
     updateClock();
     Rest.keepAwake(true);
     render();
-    var from = null;
-    if (origin && origin.closest) from = origin.closest(".train-hero") || origin;
-    if (from && from.getBoundingClientRect) {
-      root().style.pointerEvents = "none";
-      requestAnimationFrame(function () { if (S.on) root().classList.add("on"); });
-      expandFrom(from, function () {});
-    } else {
-      requestAnimationFrame(function () { if (S.on) root().classList.add("on"); });
-    }
+    void el.offsetWidth;
+    el.classList.remove("instant");
+    el.style.pointerEvents = "";
+    requestAnimationFrame(function () {
+      if (S.on && el === root()) el.classList.add("on");
+    });
   }
 
   function close(skipRender) {
@@ -2344,59 +2476,43 @@ var Focus = (function () {
     S.on = false; S.mode = "focus"; S.eid = null; S.si = null;
     S.restEnd = 0; S.restTotal = 0; S.warned = false;
     S.undo = null; S.lastDone = null; S.exitArmed = false;
-    if (S.expanderEl) {
-      clearTimeout(S.expandT);
-      try { S.expanderEl.remove(); } catch (e) {}
-      S.expanderEl = null;
-      if (root()) root().style.pointerEvents = "";
-    }
 
-    /* 退出也走同一套：先盖一张全屏黑，再把黑块缩回「继续训练」主卡。 */
-    var collapse = !skipRender && U.tab === "train";
     var el = root();
-    if (collapse && el) {
-      var d = document.createElement("div");
-      d.className = "focus-expander";
-      d.style.left = "0px"; d.style.top = "0px";
-      d.style.width = "100vw"; d.style.height = "100vh";
-      d.style.borderRadius = "0px";
-      document.body.appendChild(d);
-      S.expanderEl = d;
-      el.classList.remove("on");
-      el.hidden = true; el.innerHTML = ""; el.style.pointerEvents = "";
-      document.body.classList.remove("focusing");
-      Rest.keepAwake(false);
-      applyThemeMode(getThemeMode());
-      renderCurrentTab();
-      window.scrollTo(0, 0);
-      var target = document.querySelector(".train-hero");
-      if (target) {
-        var r = target.getBoundingClientRect();
-        var rad = (window.getComputedStyle && getComputedStyle(target).borderRadius) || "26px";
-        void d.offsetWidth;
-        d.style.left = r.left + "px"; d.style.top = r.top + "px";
-        d.style.width = r.width + "px"; d.style.height = r.height + "px";
-        d.style.borderRadius = rad;
-        clearTimeout(S.expandT);
-        S.expandT = setTimeout(function () {
-          try { d.remove(); } catch (e) {}
-          if (S.expanderEl === d) S.expanderEl = null;
-        }, 540);
-      } else {
-        d.remove(); S.expanderEl = null;
-      }
-      return;
-    }
-
-    if (el) {
-      el.classList.remove("on");
-      clearTimeout(S.closeT);
-      S.closeT = setTimeout(function () { el.hidden = true; el.innerHTML = ""; }, 360);
-    }
     document.body.classList.remove("focusing");
     Rest.keepAwake(false);
     applyThemeMode(getThemeMode());
-    if (!skipRender) renderCurrentTab();
+
+    if (!el || el.hidden) { if (!skipRender) renderCurrentTab(); return; }
+
+    /* 切标签页时不做回缩动画，直接收起来 */
+    if (skipRender) {
+      el.classList.add("instant");
+      el.classList.remove("on", "closing");
+      el.hidden = true;
+      el.innerHTML = "";
+      el.style.transformOrigin = "";
+      el.classList.remove("instant");
+      renderCurrentTab();
+      return;
+    }
+
+    /* 先把下面的页面画好，再让专注页缩回主卡的位置 —— 收缩过程中
+       背后的训练页已经在原位，接得上，不会闪白。 */
+    renderCurrentTab();
+    var target = U.tab === "train" ? document.querySelector(".train-hero") : null;
+    var o = originOf(target);
+    el.style.transformOrigin = o.x.toFixed(2) + "% " + o.y.toFixed(2) + "%";
+    el.style.pointerEvents = "none";
+    el.classList.add("closing");
+    el.classList.remove("on");
+    clearTimeout(S.closeT);
+    S.closeT = setTimeout(function () {
+      el.hidden = true;
+      el.innerHTML = "";
+      el.style.transformOrigin = "";
+      el.style.pointerEvents = "";
+      el.classList.remove("closing");
+    }, 540);
   }
 
   function step(field, delta) {
@@ -2829,40 +2945,55 @@ function nutriSheet(date, focus) {
   var mode = "add";                    /* add = 累加本次；set = 直接改成总数 */
   var dl = date.slice(5).replace("-", "/");
 
+  /* 蛋白用小哑铃（比蛋形好认，也不会被看成数字 0） */
+  var EGG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M4 9.5v5M7 7v10M17 7v10M20 9.5v5M7 12h10"/></svg>';
+  var FIRE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
+
   function cur() { return D.nutri[date] || { p: 0, k: 0 }; }
   function previewLine(p0, k0, dP, dK) {
-    return dl + "：原来 <b>" + Math.round(p0) + " g</b> ＋ 这次 <b>" + Math.round(dP) +
-      " g</b> ＝ <b>" + Math.round(p0 + dP) + " g</b><br>热量 <b>" + Math.round(k0) +
-      "</b> ＋ <b>" + Math.round(dK) + "</b> ＝ <b>" + Math.round(k0 + dK) + " kcal</b>";
+    if (mode !== "add") return "";
+    var h = '<div class="np-row"><span>原来</span><b>' + Math.round(p0) + " g · " + Math.round(k0) + " kcal</b></div>";
+    if (dP || dK) {
+      h += '<div class="np-row"><span>这次</span><b>+' + Math.round(dP) + " g · +" + Math.round(dK) + " kcal</b></div>";
+    }
+    h += '<div class="np-row sum"><span>合计</span><b>' + Math.round(p0 + dP) + " g · " + Math.round(k0 + dK) + " kcal</b></div>";
+    return h;
+  }
+  function numCard(f, label, sub, unit, id, value, imode, quick) {
+    var h = '<div class="num-card"><div class="num-row">' +
+      '<span class="num-ic' + (f === "k" ? " kcal" : "") + '">' + (f === "p" ? EGG : FIRE) + "</span>" +
+      '<span class="num-lb"><b>' + label + "</b><s>" + sub + "</s></span>" +
+      '<input class="num-inp" id="' + id + '" type="text" inputmode="' + imode + '" placeholder="0" value="' + value + '" autocomplete="off">' +
+      '<span class="num-unit">' + unit + "</span></div>";
+    if (quick && quick.length) {
+      h += '<div class="num-quick">' + quick.map(function (v) {
+        return '<button class="qb" data-nquick="' + f + '" data-v="' + v + '">+' + v + (f === "p" ? "g" : "") + "</button>";
+      }).join("") + "</div>";
+    }
+    return h + "</div>";
   }
   function html() {
     var v = cur(), p0 = num(v.p), k0 = num(v.k), h = "";
     h += '<div class="seg" style="margin:0 0 14px">' +
       '<button data-nm="add" class="' + (mode === "add" ? "on" : "") + '">加这一顿</button>' +
       '<button data-nm="set" class="' + (mode === "set" ? "on" : "") + '">改成总数</button></div>';
-    h += '<div class="card">';
     if (mode === "add") {
-      h += '<div class="fld"><label>本次蛋白（g）</label><input class="num" type="text" inputmode="decimal" id="nP" placeholder="0" value=""></div>';
-      h += '<div class="fld"><label>本次热量（kcal）</label><input class="num" type="text" inputmode="numeric" id="nK" placeholder="0" value=""></div>';
-      h += '<div class="quick-add"><span class="quick-add-l">蛋白</span><div class="quick-add-b">' +
-        [20, 30, 40, 50].map(function (v) { return '<button class="qb mini" data-nquick="p" data-v="' + v + '">+' + v + "g</button>"; }).join("") +
-        "</div></div>";
-      h += '<div class="quick-add"><span class="quick-add-l">热量</span><div class="quick-add-b">' +
-        [300, 500, 800].map(function (v) { return '<button class="qb mini" data-nquick="k" data-v="' + v + '">+' + v + "</button>"; }).join("") +
-        "</div></div>";
-      h += "</div>";
-      h += '<div class="note" id="nPrev">' + previewLine(p0, k0, 0, 0) + "</div>";
+      h += numCard("p", "蛋白", "这次吃了多少克", "g", "nP", "", "decimal", [20, 30, 40, 50]);
+      h += numCard("k", "热量", "这顿大概多少千卡", "kcal", "nK", "", "numeric", [300, 500, 800]);
+      h += '<div class="num-prev" id="nPrev">' + previewLine(p0, k0, 0, 0) + "</div>";
     } else {
-      h += '<div class="fld"><label>蛋白总数（g）</label><input class="num" type="text" inputmode="decimal" id="nP" value="' + Math.round(p0) + '"></div>';
-      h += '<div class="fld"><label>热量总数（kcal）</label><input class="num" type="text" inputmode="numeric" id="nK" value="' + Math.round(k0) + '"></div>';
-      h += "</div>";
-      h += '<div class="note" id="nPrev">直接填 ' + dl + " 想显示的总数，会盖掉现在的值。</div>";
+      h += numCard("p", "蛋白总数", "直接覆盖今天的数", "g", "nP", String(Math.round(p0)), "decimal", []);
+      h += numCard("k", "热量总数", "直接覆盖今天的数", "kcal", "nK", String(Math.round(k0)), "numeric", []);
+      h += '<div class="num-prev" id="nPrev"><div class="np-row"><span>改成 ' + dl + ' 的总数</span>' +
+        "<b>" + Math.round(p0) + " g · " + Math.round(k0) + " kcal</b></div></div>";
     }
-    h += '<div class="note">' + date.slice(5).replace("-", "月") + "日</div>";
+    h += '<div class="note" style="padding-top:12px">' + date.slice(5).replace("-", "月") + "日 · 记错了可以在「最近 7 天」里点回来改</div>";
     return h;
   }
 
-  openSheet("饮食 · " + dl, html(), function () {
+  openSheet("输入数值 · " + dl, html(), function () {
     /* 保留 mode，否则每手动改一次数值，当天的训练/休息标记就被抹掉了 */
     var o = D.nutri[date] || {};
     var p0 = num(o.p), k0 = num(o.k);
@@ -2933,8 +3064,16 @@ function foodFind(id) {
   D.foods.forEach(function (x) { if (x.id === id) f = x; });
   return f;
 }
-function foodsRecent() {
-  return D.foods.slice().sort(function (a, b) { return (b.last || 0) - (a.last || 0); });
+/* 是不是「你自己加的」。预置清单里的 id 都是固定的（rice、egg…），
+   新加的食物 id 是 f+时间戳；老数据没有 mine 字段也能认出来。 */
+function foodIsMine(f) {
+  if (f.mine) return true;
+  for (var i = 0; i < DEFAULT_FOODS.length; i++) if (DEFAULT_FOODS[i].id === f.id) return false;
+  return true;
+}
+/* 常吃只列自己添加的 —— 预置的 46 样仍然在下面的「全部食物」里可选 */
+function foodsMine() {
+  return D.foods.filter(foodIsMine).sort(function (a, b) { return (b.last || 0) - (a.last || 0); });
 }
 function foodsByCat(cat) {
   return D.foods.filter(function (f) { return f.cat === cat; });
@@ -2975,10 +3114,12 @@ function mealSheet(date) {
   $("#sheetBody").onclick = function (e) {
     var nmBtn = e.target.closest('[data-act="nutriFromMeal"]');
     if (nmBtn) { nutriSheet(ds(), "p"); return; }
-    var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mfnew],[data-mfe],[data-fme],[data-fmg]");
+    var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mfnew],[data-mfe],[data-fme],[data-fmg],[data-mc]");
     if (!t) return;
 
     if (t.hasAttribute("data-ms")) { dr.meal = t.getAttribute("data-ms"); refreshSheet(); return; }
+
+    if (t.hasAttribute("data-mc")) { U.foodCat = t.getAttribute("data-mc"); refreshSheet(); return; }
 
     if (t.hasAttribute("data-fmg")) { U.foodMg = !U.foodMg; refreshSheet(); return; }
 
@@ -3050,13 +3191,19 @@ function mealSheet(date) {
 function mealSheetHTML(dr) {
   var tot = mealTotal(dr), h = "";
 
-  h += '<div class="seg" style="margin:0 0 14px">' + ["早", "午", "晚", "加"].map(function (s) {
+  h += '<div class="seg" style="margin:0 0 12px">' + ["早", "午", "晚", "加"].map(function (s) {
     return '<button data-ms="' + s + '" class="' + (dr.meal === s ? "on" : "") + '">' + s + "餐</button>";
   }).join("") + "</div>";
-  h += '<div style="display:flex;justify-content:flex-end;margin:-4px 0 10px"><button class="qb mini gray" data-act="nutriFromMeal">输入今天的数值</button></div>';
+
+  /* 手动填数值：整行、带图标，放在最显眼的位置 */
+  h += '<button class="entry-link" data-act="nutriFromMeal">' +
+    '<span class="entry-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="4.5" y="3" width="15" height="18" rx="3"/><path d="M8.5 8h7M8.5 12h7M8.5 16h3"/></svg></span>' +
+    '<span class="entry-tx"><b>输入今天的数值</b><s>手动填蛋白和热量</s></span>' +
+    '<span class="chev">›</span></button>';
 
   if (dr.items.length) {
-    h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">这一顿（' + dr.items.length + "）</div><div class=\"card\">";
+    h += '<div class="sec" style="margin:16px 0 10px"><div class="sec-t">这一顿（' + dr.items.length + "）</div><div class=\"card\">";
     dr.items.forEach(function (it, i) {
       h += '<div class="row tray-row">' +
         '<div class="rl" data-mfe="' + i + '"><div class="rt" style="font-size:16px">' + esc(it.n) + " ›</div>" +
@@ -3069,35 +3216,43 @@ function mealSheetHTML(dr) {
     h += "</div></div>";
   }
 
-  h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">常吃</div>';
+  /* 常吃：只放你自己添加的 */
+  var mine = foodsMine();
+  h += '<div class="sec" style="margin:16px 0 10px"><div class="sec-t">常吃<span class="sec-sub">你自己加的</span>' +
+    (mine.length || U.foodMg ? '<span class="r" data-fmg="1">' + (U.foodMg ? "完成" : "管理") + "</span>" : "") + "</div>";
   if (U.foodMg) {
-    h += '<div class="note" style="margin:0 0 10px">管理模式：点<b>任意一个食物</b>进去，可以改数字，也可以删掉它。</div>';
+    h += '<div class="note" style="margin:0 0 10px">管理模式：点一个食物进去，可以改数字，也可以删掉它。</div>';
   }
-  h += '<div class="food-grid">';
-  foodsRecent().forEach(function (f) { h += foodChipHTML(f, mealHas(dr, f.id)); });
-  h += "</div>";
-  h += '<div class="pad" style="margin-top:10px;display:flex;gap:8px">' +
-    '<button class="btn sec sm" data-mfnew="1">+ 新增常吃</button>' +
-    (D.foods.length ? '<button class="btn ' + (U.foodMg ? "" : "sec ") +
-      'sm" data-fmg="1">' + (U.foodMg ? "完成" : "管理常吃") + "</button>" : "") +
-    "</div></div>";
-
-  h += '<div class="sec" style="margin:16px 0 0"><div class="sec-t">全部</div>';
-  FOOD_CATS.forEach(function (c) {
-    var arr = foodsByCat(c[0]);
-    if (!arr.length) return;
-    h += '<div class="cat-t">' + c[1] + "</div>";
+  if (mine.length) {
     h += '<div class="food-grid">';
-    arr.forEach(function (f) { h += foodChipHTML(f, mealHas(dr, f.id)); });
+    mine.forEach(function (f) { h += foodChipHTML(f, mealHas(dr, f.id)); });
     h += "</div>";
+  } else {
+    h += '<div class="food-empty"><b>还没有自己的常吃</b>点下面「新增常吃」加一样，以后进来点一下就能记。</div>';
+  }
+  h += '<div class="pad" style="margin-top:10px"><button class="btn sec sm" data-mfnew="1">+ 新增常吃</button></div>';
+  h += "</div>";
+
+  /* 全部：按分类，一次只显示一类，别再铺满一整屏 */
+  var cat = U.foodCat;
+  if (!foodsByCat(cat).length) {
+    for (var ci = 0; ci < FOOD_CATS.length; ci++) {
+      if (foodsByCat(FOOD_CATS[ci][0]).length) { cat = FOOD_CATS[ci][0]; break; }
+    }
+    U.foodCat = cat;
+  }
+  h += '<div class="sec" style="margin:18px 0 0"><div class="sec-t">全部食物</div>';
+  h += '<div class="cat-chips">';
+  FOOD_CATS.forEach(function (c) {
+    var n = foodsByCat(c[0]).length;
+    if (!n) return;
+    h += '<button class="cat-chip' + (c[0] === cat ? " on" : "") + '" data-mc="' + c[0] + '">' + c[1] + "</button>";
   });
   h += "</div>";
+  h += '<div class="food-grid">';
+  foodsByCat(cat).forEach(function (f) { h += foodChipHTML(f, mealHas(dr, f.id)); });
+  h += "</div></div>";
 
-  if (!U.foodMg) {
-    h += '<div class="note">点一下食物＝一份。吃了一半按 −，吃了两碗按 ＋。<br>' +
-      "点「这一顿」里的<b>菜名</b>能改它一份是多少热量——改的是「常吃」里的数字，以后每次都按新的算。<br>" +
-      "想去掉某个常吃 → 点上面的<b>「管理常吃」</b>。</div>";
-  }
   h += '<div class="meal-total">本顿合计 <b>' + tot.k + "</b> kcal · <b>" + tot.p + "</b> g 蛋白</div>";
 
   return h;
@@ -3212,7 +3367,10 @@ function mealViewSheet(id) {
 function foodEditSheet(id, after) {
   var isNew = !id, f = null;
   D.foods.forEach(function (x) { if (x.id === id) f = x; });
-  if (isNew) f = F("f" + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), "", "份", 0, 0, "meat");
+  if (isNew) {
+    f = F("f" + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), "", "份", 0, 0, "meat");
+    f.mine = true;                 /* 自己加的才进「常吃」，预置的都在「全部食物」 */
+  }
 
   var h = '<div class="card">';
   h += '<div class="fld"><label>名称</label><input type="text" id="fdN" value="' + esc(f.n) + '" placeholder="比如：番茄炒蛋"></div>';
@@ -3327,19 +3485,14 @@ function delLog(date) {
 function settingsSheet() {
   var s = D.settings;
   var h = "";
+  /* 目标单独一层：这里只留一行入口，点进去再改参数 */
   h += '<div class="sec"><div class="sec-t">目标</div><div class="card">';
-  h += '<div class="fld"><label>每日蛋白（g）</label><input class="num" type="number" id="stP" value="' + s.proteinTarget + '"></div>';
-  h += '<div class="fld"><label>每日总消耗（kcal）</label><input class="num" type="number" id="stT" value="' + s.tdee + '" step="50"></div>';
-  h += '<div class="fld"><label>训练日缺口（kcal）</label><input class="num" type="number" id="stDT" value="' + s.deficitTrain + '" step="50"></div>';
-  h += '<div class="fld"><label>休息日缺口（kcal）</label><input class="num" type="number" id="stDR" value="' + s.deficitRest + '" step="50"></div>';
-  h += '<div class="fld"><label>目标体重（kg）</label><input class="num" type="number" id="stW" value="' + s.weightTarget + '" step="0.5"></div>';
-  h += '<div class="fld"><label>默认休息（秒）</label><input class="num" type="number" id="stR" value="' + s.defaultRest + '" step="15"></div>';
-  h += "</div>";
-  h += '<div class="note">蛋白建议 1.6–2.2 g/kg。你 70kg → 112–155g。<br>' +
-    '总消耗 = 基础代谢 + 日常活动 + 训练。<br>' +
-    '按现在的数：训练日吃 <b>' + Math.round(s.tdee - s.deficitTrain) + "</b> kcal，休息日吃 <b>" +
-    Math.round(s.tdee - s.deficitRest) + "</b> kcal。<br>" +
-    "饮食页会自动挑：轮到你练的那天用训练日的数，休息那天用休息日的数。</div></div>";
+  h += '<div class="row" data-act="openGoals">' +
+    '<div class="rl"><div class="rt">训练与饮食目标</div>' +
+    '<div class="rs">蛋白 ' + s.proteinTarget + " g · 训练日 " + Math.round(s.tdee - s.deficitTrain) +
+    " kcal · 休息日 " + Math.round(s.tdee - s.deficitRest) + " kcal · 目标 " + fmt(s.weightTarget, 1) + " kg</div></div>" +
+    '<span class="chev">›</span></div>';
+  h += "</div></div>";
 
   var mode = getThemeMode();
   h += '<div class="sec"><div class="sec-t">外观</div><div class="card">';
@@ -3380,20 +3533,13 @@ function settingsSheet() {
   h += "</div></div>";
 
   h += '<div class="foot">数据全部保存在这台手机本地，不会上传到任何服务器。<br>唯一会丢的情况：从主屏幕删掉这个 App，或清除 Safari 数据。<br>所以请偶尔用「导出备份」存一份到 iCloud。</div>';
-  openSheet("设置", h, function () {
-    s.proteinTarget = clamp(parseInt($("#stP").value, 10) || 140, 30, 400);
-    s.tdee = clamp(parseInt($("#stT").value, 10) || 3000, 800, 8000);
-    s.deficitTrain = clamp(parseInt($("#stDT").value, 10) || 200, 0, 2000);
-    s.deficitRest = clamp(parseInt($("#stDR").value, 10) || 500, 0, 2000);
-    s.weightTarget = clamp(parseFloat($("#stW").value) || 78, 30, 200);
-    s.defaultRest = clamp(parseInt($("#stR").value, 10) || 90, 0, 600);
-    save("settings"); toast("已保存");
-  }, "保存");
+  openSheet("设置", h, function () { }, "完成");
 
   $("#sheetBody").onclick = function (e) {
     var r = e.target.closest("[data-act]"); if (!r) return;
     var a = r.getAttribute("data-act");
-    if (a === "export") { closeSheet(); doExport(); }
+    if (a === "openGoals") { goalSheet(); }
+    else if (a === "export") { closeSheet(); doExport(); }
     else if (a === "import") { closeSheet(); doImport(); }
     else if (a === "wipe") { closeSheet(); doWipe(); }
     else if (a === "togRir") {
@@ -3423,6 +3569,59 @@ function settingsSheet() {
       }
     }
   };
+}
+
+/* ---------- 目标（从设置里单独开一层） ---------- */
+function goalSheet() {
+  var s = D.settings;
+
+  function fld(label, id, val, step) {
+    return '<div class="fld"><label for="' + id + '">' + label + "</label>" +
+      '<input class="num" type="number" inputmode="decimal" id="' + id + '" value="' + val + '" step="' + step + '"></div>';
+  }
+  function intOr(v, d) { var n = parseInt(v, 10); return isNaN(n) ? d : n; }
+  function numOr(v, d) { var n = parseFloat(v); return isNaN(n) ? d : n; }
+
+  function html() {
+    var train = Math.round(s.tdee - s.deficitTrain);
+    var rest = Math.round(s.tdee - s.deficitRest);
+    var h = '<div class="goal-sum">' +
+      '<div class="gs-item"><b>' + train + '</b><span>训练日吃 · kcal</span></div>' +
+      '<div class="gs-item"><b>' + rest + '</b><span>休息日吃 · kcal</span></div></div>';
+
+    h += '<div class="sec" style="margin-top:18px"><div class="sec-t">身体</div><div class="card">';
+    h += fld("目标体重（kg）", "stW", s.weightTarget, "0.5");
+    h += fld("每日蛋白（g）", "stP", s.proteinTarget, "5");
+    h += "</div></div>";
+
+    h += '<div class="sec"><div class="sec-t">热量</div><div class="card">';
+    h += fld("每日总消耗（kcal）", "stT", s.tdee, "50");
+    h += fld("训练日缺口（kcal）", "stDT", s.deficitTrain, "50");
+    h += fld("休息日缺口（kcal）", "stDR", s.deficitRest, "50");
+    h += "</div></div>";
+
+    h += '<div class="sec"><div class="sec-t">训练</div><div class="card">';
+    h += fld("默认组间休息（秒）", "stR", s.defaultRest, "15");
+    h += "</div></div>";
+
+    h += '<div class="note">蛋白建议 1.6–2.2 g/kg：你 70kg → 112–155 g。<br>' +
+      "总消耗 = 基础代谢 + 日常活动 + 训练。缺口越大掉得越快，但别把脂肪压到 55 g 以下。<br>" +
+      "训练日 / 休息日由 App 按循环自动挑，饮食页也能手动切。</div>";
+    return h;
+  }
+
+  openSheet("目标", html(), function () {
+    s.weightTarget = clamp(numOr($("#stW").value, DEFAULT_SETTINGS.weightTarget), 30, 200);
+    s.proteinTarget = clamp(intOr($("#stP").value, DEFAULT_SETTINGS.proteinTarget), 30, 400);
+    s.tdee = clamp(intOr($("#stT").value, DEFAULT_SETTINGS.tdee), 800, 8000);
+    s.deficitTrain = clamp(intOr($("#stDT").value, DEFAULT_SETTINGS.deficitTrain), 0, 2000);
+    s.deficitRest = clamp(intOr($("#stDR").value, DEFAULT_SETTINGS.deficitRest), 0, 2000);
+    s.defaultRest = clamp(intOr($("#stR").value, DEFAULT_SETTINGS.defaultRest), 0, 600);
+    save("settings");
+    toast("目标已保存");
+    settingsSheet();          /* 存完回到设置那一层 */
+    return "keep";
+  }, "保存");
 }
 
 /* ---------- 外观 ----------
@@ -3576,6 +3775,7 @@ document.addEventListener("touchmove", function (e) {
 
 window.addEventListener("scroll", function () {
   $("#hdr").classList.toggle("scrolled", window.scrollY > 12);
+  if (calPopEl) closeCalPicker(true);
 }, { passive: true });
 
 /* 页面切回前台时刷新倒计时 */

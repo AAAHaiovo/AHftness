@@ -423,18 +423,19 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 .qb-grid.g3{grid-template-columns:repeat(3,1fr)}
 .qb-grid .qb{width:auto; padding:0 4px; white-space:nowrap}
 
-/* 「输入今天的数值」弹层里的快捷加：默认收在弹层里，不占饮食页 */
-.quick-add{display:flex; align-items:center; gap:8px; padding:8px var(--gap) 0}
-.quick-add-l{flex:none; width:34px; font-size:12px; color:var(--tx3)}
-.quick-add-b{flex:1; min-width:0; display:flex; gap:6px}
-.quick-add-b .qb{flex:1; min-width:0; height:32px; padding:0 4px; font-size:12px; border-radius:9px}
-
 /* ---------------- 日历 ---------------- */
 .cal-hd{
   display:flex; align-items:center; justify-content:space-between;
   padding:4px var(--gap) 12px;
 }
-.cal-m{font-size:20px; font-weight:700; letter-spacing:-.4px}
+/* 年月标题 = 下拉按钮 */
+.cal-m{
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:20px; font-weight:700; letter-spacing:-.4px; color:var(--tx);
+  padding:6px 8px 6px 0; margin-left:-4px; border-radius:10px;
+}
+.cal-m:active{opacity:.55}
+.cal-m svg{color:var(--tx3); margin-top:2px}
 .cal-nav{display:flex; gap:4px}
 .cal-nav button{
   width:34px; height:34px; border-radius:50%; color:var(--tx);
@@ -442,7 +443,19 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 }
 .cal-nav button:active{background:var(--fill)}
 .cal-nav button:disabled{color:var(--tx3)}
-.cal{background:var(--card); border-radius:var(--r); margin:0 var(--gap); padding:12px 6px 8px; box-shadow:var(--sh-1); transition:background .3s ease}
+.cal{
+  background:var(--card); border-radius:var(--r); margin:0 var(--gap);
+  padding:12px 0 8px; box-shadow:var(--sh-1);
+  transition:background .3s ease; overflow:hidden;
+}
+/* 三页横向排成一条轨道，实际只露出中间那一页 */
+.cal-track{
+  display:flex; width:300%;
+  transform:translateX(-33.3333%);
+  will-change:transform;
+  touch-action:pan-y;
+}
+.cal-page{flex:none; width:33.3333%; box-sizing:border-box; padding:0 6px}
 .cal-wk, .cal-grid{display:grid; grid-template-columns:repeat(7,1fr)}
 .cal-wk div{
   text-align:center; font-size:11px; font-weight:600; color:var(--tx3);
@@ -476,22 +489,35 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 /* 旧的 8px 部位文字标签已改用 4px 点，详情放到日期下方 */
 .cal-d .dtag{display:none}
 
-/* 长按年月：选年 / 选月 */
-.cal-pick{padding:0 var(--gap)}
-.cal-pick-year{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0 16px}
-.cal-pick-year b{font:700 22px var(--fm); letter-spacing:-.03em}
-.cal-pick-year button{
-  width:40px; height:40px; border-radius:50%; background:var(--fill); color:var(--tx);
-  font-size:20px; display:grid; place-items:center;
+/* 点年月：标题下方浮出的小窗（下拉式），带缩放淡入 */
+.cal-pop-mask{position:fixed; inset:0; z-index:230}
+.cal-pop{
+  position:fixed; z-index:231; width:288px; max-width:calc(100vw - 24px);
+  background:var(--card); border-radius:18px; padding:10px 10px 12px;
+  box-shadow:0 20px 50px -14px rgba(0,0,0,.4), 0 0 0 .5px rgba(0,0,0,.07);
+  transform-origin:top center;
+  transform:scale(.92) translateY(-6px); opacity:0;
+  transition:transform .22s cubic-bezier(.32,.72,0,1), opacity .16s ease-out;
 }
-.cal-pick-year button:disabled{opacity:.3}
-.cal-pick-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
-.cal-pick-grid button{
-  height:46px; border-radius:12px; background:var(--field-bg); color:var(--tx);
-  font-size:15px; font-weight:600; box-shadow:inset 0 0 0 1px var(--field-line);
+.cal-pop.on{transform:none; opacity:1}
+html[data-theme="dark"] .cal-pop{box-shadow:0 20px 50px -14px rgba(0,0,0,.7), 0 0 0 .5px rgba(255,255,255,.09)}
+.cal-pop-y{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 0 9px}
+.cal-pop-y b{font:700 17px var(--fm); letter-spacing:-.02em; color:var(--tx)}
+.cal-pop-y button{
+  width:34px; height:34px; border-radius:50%; background:var(--fill); color:var(--tx);
+  font-size:19px; display:grid; place-items:center;
 }
-.cal-pick-grid button.on{background:var(--tx); color:var(--card); box-shadow:none}
-.cal-pick-grid button:disabled{opacity:.3}
+.cal-pop-y button:disabled{opacity:.28}
+.cal-pop-y button:not(:disabled):active{background:var(--card3)}
+.cal-pop-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:6px}
+.cal-pop-grid button{
+  height:42px; border-radius:11px; background:var(--field-bg); color:var(--tx);
+  font-size:14px; font-weight:600; box-shadow:inset 0 0 0 1px var(--field-line);
+  transition:background .15s, color .15s, transform .12s;
+}
+.cal-pop-grid button:not(:disabled):active{transform:scale(.95)}
+.cal-pop-grid button.on{background:var(--tx); color:var(--card); box-shadow:none}
+.cal-pop-grid button:disabled{opacity:.3}
 
 /* 热力图 */
 .heat{padding:4px var(--gap) 8px}
@@ -893,7 +919,10 @@ html[data-theme="dark"] .rest-bar{box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 0 .5
 .row .rl[data-mfe]:active{opacity:.55}
 
 /* 「常吃」网格：一格一道菜，点一下就进托盘 */
-.food-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px}
+.food-grid{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr));
+  gap:8px; padding:0 var(--gap);
+}
 .food{
   display:block; width:100%; border:0; cursor:pointer;
   background:var(--card); color:var(--tx); box-shadow:var(--sh-1);
@@ -943,6 +972,112 @@ html[data-theme="dark"] .rest-bar{box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 0 .5
   width:22px; height:22px; border-radius:7px; font-size:11px; font-weight:700;
   background:var(--blue-t); color:var(--blue);
 }
+
+/* 「输入今天的数值」入口：整行按钮 + 图标，不再缩在右上角 */
+.entry-link{
+  display:flex; align-items:center; gap:12px;
+  width:calc(100% - var(--gap) * 2); margin:0 var(--gap);
+  padding:12px 14px; border-radius:16px; text-align:left;
+  background:var(--card); color:var(--tx); box-shadow:var(--sh-1);
+  transition:transform .12s, background .3s ease;
+}
+.entry-link:active{transform:scale(.985)}
+.entry-ic{
+  flex:none; width:40px; height:40px; border-radius:12px;
+  background:var(--blue-t); color:var(--blue);
+  display:grid; place-items:center;
+}
+.entry-ic svg{width:21px; height:21px}
+.entry-tx{flex:1; min-width:0}
+.entry-tx b{display:block; font-size:15.5px; font-weight:650; letter-spacing:-.2px}
+.entry-tx s{display:block; text-decoration:none; font-size:12.5px; color:var(--tx2); margin-top:2px}
+.entry-link .chev{flex:none; color:var(--tx3)}
+
+/* 常吃的空状态 */
+.food-empty{
+  margin:0 var(--gap); padding:16px 14px; border-radius:14px;
+  border:1px dashed var(--field-line); text-align:center;
+  font-size:12.5px; color:var(--tx3); line-height:1.6;
+}
+.food-empty b{display:block; color:var(--tx2); font-size:13.5px; margin-bottom:2px}
+.sec-t .sec-sub{font-weight:400; color:var(--tx3); font-size:11.5px; margin-left:5px}
+
+/* 分类胶囊：一次只显示一类，避免把整屏铺满 */
+.cat-chips{
+  display:flex; flex-wrap:nowrap; gap:6px;
+  padding:0 var(--gap) 10px;
+  overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch;
+}
+.cat-chips::-webkit-scrollbar{display:none}
+.cat-chip{
+  flex:none; height:30px; padding:0 12px; border-radius:100px;
+  background:var(--card3); color:var(--tx2);
+  font-size:12.5px; font-weight:600;
+  transition:background .15s, color .15s;
+}
+.cat-chip.on{background:var(--tx); color:var(--card)}
+.cat-chip:active{opacity:.7}
+
+/* ============================================================
+   输入饮食数值：大号数字卡片
+   ============================================================ */
+.num-card{
+  background:var(--card); border-radius:16px; margin:0 var(--gap) 10px;
+  padding:14px var(--gap); box-shadow:var(--sh-1);
+  transition:background .3s ease;
+}
+.num-row{display:flex; align-items:center; gap:11px}
+.num-ic{
+  flex:none; width:40px; height:40px; border-radius:12px;
+  background:var(--blue-t); color:var(--blue);
+  display:grid; place-items:center;
+}
+.num-ic.kcal{background:var(--orange-t); color:var(--orange-ink)}
+html[data-theme="dark"] .num-ic.kcal{color:var(--orange)}
+.num-ic svg{width:21px; height:21px}
+.num-lb{flex:1; min-width:0}
+.num-lb b{display:block; font-size:15px; font-weight:600}
+.num-lb s{display:block; text-decoration:none; font-size:12px; color:var(--tx2); margin-top:2px; line-height:1.3}
+.num-inp{
+  flex:none; width:96px; padding:0; text-align:right;
+  border:none; background:transparent; border-radius:0;
+  font:700 30px/1.1 var(--fm); letter-spacing:-.04em; color:var(--tx);
+  font-variant-numeric:tabular-nums; -webkit-appearance:none; appearance:none;
+}
+.num-inp:focus{outline:none; color:var(--blue)}
+.num-inp::placeholder{color:var(--tx3); font-weight:600}
+.num-unit{flex:none; width:30px; margin-left:-4px; font-size:12px; color:var(--tx3)}
+.num-quick{display:flex; gap:6px; margin-top:12px; padding-top:11px; border-top:.5px solid var(--line)}
+.num-quick .qb{
+  flex:1; min-width:0; height:34px; padding:0 4px;
+  font-size:12.5px; border-radius:10px; background:var(--field-bg);
+}
+.num-prev{
+  margin:2px var(--gap) 0; padding:12px var(--gap);
+  background:var(--card); border-radius:16px; box-shadow:var(--sh-1);
+  font-size:13.5px; color:var(--tx2); transition:background .3s ease;
+}
+.np-row{
+  display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+  padding:3px 0; font-variant-numeric:tabular-nums;
+}
+.np-row b{color:var(--tx); font-weight:600}
+.np-row.sum{margin-top:5px; padding-top:7px; border-top:.5px solid var(--line)}
+.np-row.sum b{font-size:16px; font-weight:700}
+
+/* ============================================================
+   设置 → 目标（单独一层）
+   ============================================================ */
+.goal-sum{display:flex; gap:10px; margin:0 var(--gap)}
+.gs-item{
+  flex:1; background:var(--card); border-radius:var(--r);
+  padding:16px 10px 14px; text-align:center; box-shadow:var(--sh-1);
+}
+.gs-item b{
+  display:block; font:700 28px/1.15 var(--fm); letter-spacing:-.05em;
+  color:var(--tx); font-variant-numeric:tabular-nums;
+}
+.gs-item span{display:block; margin-top:4px; font-size:12px; color:var(--tx2)}
 
 /* ============================================================
    饮食页底部的「每天怎么吃」速查卡
@@ -1094,19 +1229,27 @@ html[data-theme="dark"] .train-hero{
   position:fixed; inset:0; z-index:150; display:flex; flex-direction:column;
   background:#000; color:#fff; overflow:hidden;
   padding:calc(var(--safe-t) + 6px) 0 calc(var(--safe-b) + 10px);
-  opacity:0; transform:translateY(22px);
-  transition:opacity .24s ease, transform .34s cubic-bezier(.32,.72,0,1);
+  opacity:0; transform:scale(.78);
+  transform-origin:50% 42%;
+  border-radius:34px;
+  box-shadow:0 30px 80px -24px rgba(0,0,0,.55);
+  transition:opacity .18s ease-out,
+             transform .5s cubic-bezier(.22,1,.36,1),
+             border-radius .5s cubic-bezier(.22,1,.36,1);
+  will-change:transform, opacity;
+  -webkit-backface-visibility:hidden; backface-visibility:hidden;
 }
-.focus-wrap.on{opacity:1; transform:none}
+.focus-wrap.on{opacity:1; transform:scale(1); border-radius:0}
+/* 退出：先稳稳缩回主卡（保持不透明），最后 0.2 秒才淡出，
+   这样看到的是「App 缩回图标」，而不是整屏直接消失。 */
+.focus-wrap.closing{
+  transition:transform .46s cubic-bezier(.32,.72,0,1),
+             border-radius .46s cubic-bezier(.32,.72,0,1),
+             opacity .18s ease-in .32s;
+}
+/* 进入前摆起始位置 / 切标签时收起，都不要过渡 */
+.focus-wrap.instant{transition:none !important}
 .focus-wrap[hidden]{display:none !important}
-.focus-expander{
-  position:fixed; z-index:151; background:#000; pointer-events:none;
-  box-shadow:0 18px 40px -24px rgba(0,0,0,.55);
-  transition:left .52s cubic-bezier(.4,0,.2,1), top .52s cubic-bezier(.4,0,.2,1),
-             width .52s cubic-bezier(.4,0,.2,1), height .52s cubic-bezier(.4,0,.2,1),
-             border-radius .52s cubic-bezier(.4,0,.2,1);
-  will-change:left, top, width, height, border-radius;
-}
 body.focusing{overflow:hidden}
 .focus-top{
   flex:none; min-height:44px; padding:0 20px;
