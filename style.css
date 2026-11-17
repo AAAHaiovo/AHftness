@@ -77,6 +77,11 @@
   --m-leg:#3F6B4A;      --m-leg-t:#E6F0E8;
   --m-glute:#7A4A5A;    --m-glute-t:#F2E6EA;
   --m-core:#6B5A45;     --m-core-t:#EFEAE3;
+
+  /* 计划页分组竖条的中间调（低饱和，小面积） */
+  --mb-chest:#D2B9B2; --mb-back:#BCC9DB; --mb-shoulder:#D4CDB2;
+  --mb-tri:#B9D0C2; --mb-bi:#CDBBDD; --mb-leg:#B9D0C2;
+  --mb-glute:#D8C3B4; --mb-core:#D4CDB2;
 }
 
 /* 深色 —— 训练 / 夜间共用。白卡换成 #1C1C1E，荧光保留为唯一动作信号，
@@ -133,9 +138,14 @@ html[data-theme="dark"]{
   --m-leg:#A6CDB2;      --m-leg-t:rgba(166,205,178,.16);
   --m-glute:#D8AEBC;    --m-glute-t:rgba(216,174,188,.16);
   --m-core:#CBB89A;     --m-core-t:rgba(203,184,154,.16);
+
+  --mb-chest:#6E5B58; --mb-back:#59656F; --mb-shoulder:#6C685C;
+  --mb-tri:#5A6A63; --mb-bi:#665F70; --mb-leg:#5A6A63;
+  --mb-glute:#6E5B58; --mb-core:#6C685C;
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+[data-longpress]{-webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
 /* hidden 属性必须能压过下面的 display:flex —— 否则弹层/灯箱会一直盖在屏幕上 */
 [hidden]{display:none !important}
 /* touch-action:manipulation = 只干掉「双击缩放」，单指滚动照常。
@@ -172,19 +182,22 @@ h1,h2,h3,h4,p{margin:0}
 html[data-theme="dark"] #hdr{background:rgba(0,0,0,.74)}
 html[data-theme="dark"] #hdr.scrolled{background:rgba(0,0,0,.90)}
 .hdr-in{
-  height:var(--hdrh); display:flex; align-items:center; gap:10px;
-  padding:0 var(--gap);
+  min-height:var(--hdrh); display:flex; align-items:center; gap:10px;
+  padding:6px var(--gap);
 }
-.hdr-l{flex:1; min-width:0; display:flex; align-items:baseline; gap:8px}
+#hdr:not(.scrolled) .hdr-in{min-height:64px; padding:8px var(--gap)}
+.hdr-l{flex:1; min-width:0; display:flex; align-items:center; gap:10px}
+.hdr-titles{min-width:0; display:flex; flex-direction:column; justify-content:center; gap:1px}
 #hdrTitle{
-  font-size:17px; font-weight:650; letter-spacing:-.2px;
+  font-size:17px; font-weight:650; letter-spacing:-.2px; line-height:1.15;
   transition:font-size .18s ease;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-#hdr:not(.scrolled) #hdrTitle{font-size:32px; font-weight:700; letter-spacing:-1.1px}
+#hdr:not(.scrolled) #hdrTitle{font-size:30px; font-weight:700; letter-spacing:-1px; line-height:1.1}
 .hdr-sub{
-  font-size:13px; color:var(--tx2); white-space:nowrap;
-  opacity:0; transition:opacity .18s;
+  font-size:13px; color:var(--tx2); line-height:1.2;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  opacity:1; transition:opacity .18s;
 }
 #hdr.scrolled .hdr-sub{opacity:1}
 
@@ -214,17 +227,22 @@ html[data-theme="dark"] .brand{background:rgba(235,235,245,.12); color:#fff; box
 .hdr-btn{
   width:38px; height:38px; border-radius:50%; flex:none;
   display:flex; align-items:center; justify-content:center;
-  color:var(--tx); background:transparent;
+  color:var(--tx); background:var(--fill);
   transition:background .15s, transform .12s, color .3s ease;
 }
-.hdr-btn:active{background:var(--fill); transform:scale(.94)}
+.hdr-btn:active{background:var(--card3); transform:scale(.94)}
+.hdr-ic{display:flex; align-items:center; justify-content:center}
+.hdr-ic svg{display:block}
+.hdr-edit{display:none}
+#hdr.plan-mode .hdr-gear{display:none}
+#hdr.plan-mode .hdr-edit{display:flex}
 
 /* ---------------- 主视图 ---------------- */
 #view{padding:8px 0 0}
 .pad{padding:0 var(--gap)}
 .sec{margin-bottom:24px}
 .sec-t{
-  font-size:14px; font-weight:600; color:var(--tx2);
+  font-size:13px; font-weight:600; color:var(--tx2);
   padding:0 var(--gap) 8px;
 }
 .sec-t .r{float:right; color:var(--blue); font-weight:500; font-size:13.5px}
@@ -401,6 +419,12 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 .qb-grid.g4{grid-template-columns:repeat(4,1fr)}
 .qb-grid.g3{grid-template-columns:repeat(3,1fr)}
 .qb-grid .qb{width:auto; padding:0 4px; white-space:nowrap}
+
+/* 「输入今天的数值」弹层里的快捷加：默认收在弹层里，不占饮食页 */
+.quick-add{display:flex; align-items:center; gap:8px; padding:8px var(--gap) 0}
+.quick-add-l{flex:none; width:34px; font-size:12px; color:var(--tx3)}
+.quick-add-b{flex:1; min-width:0; display:flex; gap:6px}
+.quick-add-b .qb{flex:1; min-width:0; height:32px; padding:0 4px; font-size:12px; border-radius:9px}
 
 /* ---------------- 日历 ---------------- */
 .cal-hd{
@@ -887,7 +911,7 @@ html[data-theme="dark"] .rest-bar{box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 0 .5
 .train-topline .tt-date{font-variant-numeric:tabular-nums}
 .train-hero{
   margin:0 var(--gap) 16px; padding:20px;
-  background:#0A0A0A; color:#fff; border-radius:26px;
+  background:#111114; color:#fff; border-radius:26px;
   box-shadow:0 18px 40px -24px rgba(0,0,0,.55);
   position:relative; overflow:hidden;
 }
@@ -897,7 +921,7 @@ html[data-theme="dark"] .rest-bar{box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 0 .5
   font-variant-numeric:tabular-nums;
 }
 .train-hero h2{
-  font-size:28px; font-weight:700; letter-spacing:-.035em;
+  font-size:26px; font-weight:700; letter-spacing:-.035em;
   color:#fff; margin-top:14px;
 }
 .train-hero .th-meta{font-size:13px; color:rgba(235,235,245,.6); margin-top:5px}
@@ -948,6 +972,35 @@ html[data-theme="dark"] .train-hero{
 .tl-r{flex:none; text-align:right; font:600 13px var(--fm); color:var(--tx2); white-space:nowrap; font-variant-numeric:tabular-nums}
 .tl-r small{display:block; font-size:11px; color:var(--tx3); font-family:var(--f); margin-top:2px}
 .train-list .chev{flex:none; color:var(--tx3); font-size:20px; line-height:1; margin-left:-2px}
+
+/* 计划页：一天一张卡，卡头是动作表标题 + 预计时长 */
+.plan-card{margin:0 var(--gap); background:var(--card); border-radius:var(--r); box-shadow:var(--sh-1); overflow:hidden; transition:background .3s ease}
+.plan-h{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:16px var(--gap) 12px}
+.plan-h b{font-size:18px; font-weight:700; letter-spacing:-.2px}
+.plan-h span{font:500 12.5px var(--fm); color:var(--tx3); white-space:nowrap; font-variant-numeric:tabular-nums}
+.plan-g{
+  position:relative; padding:8px var(--gap) 8px 20px;
+  font:600 12px var(--f); color:var(--tx3); letter-spacing:.02em;
+  border-top:.5px solid var(--line);
+}
+.plan-g:before{
+  content:""; position:absolute; left:3px; top:50%; transform:translateY(-50%);
+  width:3px; height:10px; border-radius:2px; background:var(--bar,var(--tx3));
+}
+.plan-row{display:flex; align-items:center; gap:12px; padding:11px var(--gap); position:relative}
+.plan-row + .plan-row::before{
+  content:""; position:absolute; left:54px; right:0; top:0; height:.5px; background:var(--line);
+}
+.plan-row:active{background:var(--line2)}
+.plan-n{
+  flex:none; width:26px; height:26px; border-radius:8px;
+  background:var(--card3); color:var(--tx2); display:grid; place-items:center;
+  font:600 11px var(--fm); font-variant-numeric:tabular-nums;
+}
+.plan-i{flex:1; min-width:0}
+.plan-i b{display:block; font-size:16px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.plan-i small{display:block; font-size:13px; color:var(--tx2); margin-top:3px; font-variant-numeric:tabular-nums}
+.plan-row .chev{flex:none; color:var(--tx3); font-size:19px; line-height:1}
 .train-toolbar{display:flex; gap:8px; padding:0 var(--gap) 12px}
 #trainListWrap{scroll-margin-top:70px}
 .tb-btn{
@@ -964,7 +1017,10 @@ html[data-theme="dark"] .train-hero{
   position:fixed; inset:0; z-index:150; display:flex; flex-direction:column;
   background:#000; color:#fff; overflow:hidden;
   padding:calc(var(--safe-t) + 6px) 0 calc(var(--safe-b) + 10px);
+  opacity:0; transform:translateY(22px);
+  transition:opacity .24s ease, transform .34s cubic-bezier(.32,.72,0,1);
 }
+.focus-wrap.on{opacity:1; transform:none}
 .focus-wrap[hidden]{display:none !important}
 body.focusing{overflow:hidden}
 .focus-top{
@@ -1024,16 +1080,16 @@ body.focusing{overflow:hidden}
 .focus-bars i.cur{background:#fff}
 .focus-progress-l{
   display:flex; justify-content:space-between; gap:8px; margin-top:10px;
-  font-size:11.5px; color:rgba(235,235,245,.42); font-variant-numeric:tabular-nums;
+  font-size:12px; color:rgba(235,235,245,.42); font-variant-numeric:tabular-nums;
 }
 .focus-progress-l b{color:rgba(235,235,245,.72); font-weight:500}
 .focus-spacer{
   flex:1; min-height:16px; padding:16px 20px; text-align:center;
   display:flex; align-items:center; justify-content:center;
 }
-.focus-next{font-size:11.5px; line-height:1.65; color:rgba(235,235,245,.38); font-variant-numeric:tabular-nums}
+.focus-next{font-size:12px; line-height:1.65; color:rgba(235,235,245,.38); font-variant-numeric:tabular-nums}
 .focus-next b{display:block; color:rgba(255,255,255,.72); font-size:14px; font-weight:600; margin-top:2px}
-.focus-next span{font:500 11.5px var(--fm)}
+.focus-next span{font:500 12px var(--fm)}
 .focus-dock{flex:none; padding:0 20px}
 .focus-dock-h{
   display:flex; justify-content:space-between; align-items:baseline; gap:8px;
