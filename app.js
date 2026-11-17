@@ -265,7 +265,11 @@ var DEFAULT_SETTINGS = {
   /* RIR（还能再做几次）那一列。默认关 —— 大部分人不用，
      留着白占一列、每组还多一个要跳过的框。设置里能开回来。
      已经填过的 RIR 数据不会丢，开了就还能看见。 */
-  showRir: false
+  showRir: false,
+  /* 训练反馈开关 */
+  haptic: true,
+  sound: true,
+  voice: true
 };
 /* 摄入目标不再固定填，改成按当天消耗倒推：消耗 − 缺口 */
 
@@ -363,7 +367,8 @@ var U = {                       // 界面状态（不持久化）
   foodMg: false,                // 「记一顿」里是否开着「管理常吃」模式
   dietPlanOpen: false,          // 饮食页底部「每天怎么吃」速查卡是否展开
   planDay: null,                // 计划页顶部选中的那一天（d1–d4 / rest）
-  pickedDay: null               // 「换一天」选的训练日；还没真正开始训练时不写 logs
+  pickedDay: null,              // 「换一天」选的训练日；还没真正开始训练时不写 logs
+  calPickYear: null             // 日历长按年月时，选择器里的年份
 };
 
 var READY = false;
@@ -703,6 +708,7 @@ var Rest = (function () {
   function finish() {
     if (tick) { clearInterval(tick); tick = null; }
     beep(); vibrate([120, 60, 120]);
+    speak("休息结束，准备下一组");
     toast("休息结束，下一组！");
     stop();
   }
@@ -731,6 +737,7 @@ var Rest = (function () {
 
 var audioCtx = null;
 function beep() {
+  if (D.settings && D.settings.sound === false) return;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === "suspended") audioCtx.resume();
@@ -746,7 +753,19 @@ function beep() {
     });
   } catch (e) {}
 }
-function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+function vibrate(p) {
+  if (D.settings && D.settings.haptic === false) return;
+  try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {}
+}
+function speak(txt) {
+  if (D.settings && D.settings.voice === false) return;
+  try {
+    if (!("speechSynthesis" in window) || !window.SpeechSynthesisUtterance) return;
+    var u = new SpeechSynthesisUtterance(txt);
+    u.lang = "zh-CN"; u.rate = 1.06; u.volume = .85;
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
 
 /* 休息倒计时响铃时，距离你上次点屏幕可能已经过去两分钟了。
    iOS 不允许在「没有用户操作」的时候启动音频，所以必须趁你第一次点屏幕
@@ -1046,30 +1065,14 @@ function exCard(ex, n, active) {
   h += '<div class="ex-hd" data-act="exInfo" data-ex="' + ex.id + '" data-longpress="ex">';
   h += '<span class="ex-i" data-n="' + n + '">' + (allDone ? "✓" : n) + "</span>";
   h += '<span class="ex-nm">' + esc(ex.n) + '<span class="badge ' + mgKey(ex.mg) + '" style="margin-left:6px;vertical-align:3px">' + esc(ex.mg) + "</span></span>";
-  h += '<span class="ex-set">' + ex.s + "×" + esc(ex.r) + "</span>";
+  h += '<span class="ex-set">' + ex.s + " × " + esc(ex.r) + "</span>";
   h += "</div>";
-  if (last) {
-    /* 只列 3 组、不带 kg —— 列头已经写了「重量 kg」。也不写日期：
-       这行左边是「上次」，右边是「全部照上次」，中间只剩 200px 出头。
-       日期要再占 40px，三位数重量（100×10）就一定会被省略号切掉。
-       想看哪次练的，点动作名进详情，那里有带日期的完整历史。
-       所以字号压到 12px，分隔符用「 · 」——全角空格一个就 13px，三个吃掉 39px。 */
-    var t = last.sets.filter(function (s) { return s.w || s.r; }).slice(0, 3).map(function (s) {
-      return (s.w || "—") + "×" + (s.r || "—");
-    }).join(" · ");
-    h += '<div class="ex-last"><span class="el-main">上次 <b>' + esc(t) + "</b></span>";
-    /* 「全部照上次」从快捷行挪上来：快捷行要留给用户点名的 4 个，5 个挤一行会断行 */
-    if (active) h += '<button class="qb gray mini" data-act="copyAll" data-ex="' + ex.id + '">全部照上次</button>';
-    h += "</div>";
-  }
-  /* 没有历史记录时这里原本有一行灰字提示（「第一次做，轻一点找准动作」），
-     已按要求删掉。没记录就干脆不显示这一行，卡片更干净。 */
 
   if (active) {
     h += '<div class="quick">';
     h += '<button class="qb" data-act="bump" data-ex="' + ex.id + '" data-v="2.5">+2.5kg</button>';
     h += '<button class="qb" data-act="bump" data-ex="' + ex.id + '" data-v="-2.5">−2.5kg</button>';
-    h += '<button class="qb gray" data-act="copyPrev" data-ex="' + ex.id + '">复制上一组</button>';
+    h += '<button class="qb gray" data-act="copyPrev" data-ex="' + ex.id + '" data-longpress="copyAll">复制上一组</button>';
     h += '<button class="qb gray" data-act="rest" data-ex="' + ex.id + '">休息 ' + ex.rest + "s</button>";
     h += "</div>";
   }
@@ -1103,6 +1106,54 @@ function restoreFocus() {
 }
 
 /* ---------------- 日历 ---------------- */
+function calShift(delta) {
+  if (U.tab !== "cal" || U.calSeg !== "month") return;
+  var m = U.calMonth;
+  var next = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+  var now = new Date();
+  var cur = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (next > cur) next = cur;
+  if (next.getFullYear() < 2000) next = new Date(2000, 0, 1);
+  U.calMonth = next;
+  U.calPickYear = next.getFullYear();
+  render();
+}
+function openCalPicker() {
+  if (!U.calPickYear) U.calPickYear = U.calMonth.getFullYear();
+  var y = U.calPickYear;
+  var now = new Date(), curY = now.getFullYear(), curM = now.getMonth();
+  var h = '<div class="cal-pick">' +
+    '<div class="cal-pick-year">' +
+      '<button data-act="calPickYear" data-v="-1" aria-label="上一年">‹</button>' +
+      '<b>' + y + '</b>' +
+      '<button data-act="calPickYear" data-v="1" aria-label="下一年"' + (y >= curY ? " disabled" : "") + '>›</button>' +
+    '</div><div class="cal-pick-grid">' +
+    MON.map(function (m, i) {
+      var future = (y > curY) || (y === curY && i > curM);
+      var on = (U.calMonth.getFullYear() === y && U.calMonth.getMonth() === i);
+      return '<button data-act="calPickMonth" data-m="' + i + '" class="' + (on ? "on" : "") + '"' + (future ? " disabled" : "") + '>' + m + '</button>';
+    }).join("") +
+    '</div></div>';
+  openSheet("选择年月", h, null, "关闭");
+  $("#sheetBody").onclick = function (e) {
+    var t = e.target.closest("[data-act]"); if (!t) return;
+    var a = t.getAttribute("data-act");
+    if (a === "calPickYear") {
+      var v = parseInt(t.getAttribute("data-v"), 10) || 0;
+      var ny = y + v;
+      if (ny > curY) ny = curY;
+      if (ny < 2000) ny = 2000;
+      U.calPickYear = ny;
+      openCalPicker();
+    } else if (a === "calPickMonth") {
+      var mm = parseInt(t.getAttribute("data-m"), 10) || 0;
+      U.calMonth = new Date(y, mm, 1);
+      U.calPickYear = y;
+      closeSheet();
+      render();
+    }
+  };
+}
 function viewCal() {
   var h = "";
   h += '<div class="seg">' +
@@ -1125,7 +1176,7 @@ function calMonthHTML() {
   var now = new Date();
   var canNext = !(y === now.getFullYear() && m === now.getMonth());
 
-  var h = '<div class="cal-hd"><div class="cal-m">' + y + "年" + (m + 1) + "月</div>";
+  var h = '<div class="cal-hd"><div class="cal-m" data-longpress="calPick">' + y + "年" + (m + 1) + "月</div>";
   h += '<div class="cal-nav"><button data-act="calPrev">‹</button>';
   h += '<button data-act="calNext"' + (canNext ? "" : " disabled") + ">›</button></div></div>";
   h += '<div class="cal"><div class="cal-wk">' + WD.map(function (w) { return "<div>" + w + "</div>"; }).join("") + "</div>";
@@ -1264,25 +1315,22 @@ function viewDiet() {
     '<button data-act="nutMode" data-v="train" class="' + (mode === "train" ? "on" : "") + '">训练日 −' + num(st.deficitTrain) + "</button>" +
     '<button data-act="nutMode" data-v="rest" class="' + (mode === "rest" ? "on" : "") + '">休息日 −' + num(st.deficitRest) + "</button></div>";
 
-  h += '<div class="pad" style="padding-bottom:14px"><div class="card"><div class="card-pad">';
-  h += '<div class="ring-wrap">';
-  h += '<div class="ring" data-act="editP">' + svgRing(np / tp, "var(--blue)") + '<div class="rv"><b>' + Math.round(np) + "</b><s>/ " + tp + " g 蛋白</s></div></div>";
-  h += '<div class="ring" data-act="editK">' + svgRing(nk / tk, "var(--orange)") + '<div class="rv"><b>' + Math.round(nk) + "</b><s>/ " + tk + " kcal</s></div></div>";
+  var pLeft = tp - np, kLeft = tk - nk;
+  var pTxt = pLeft > 0 ? "还差 " + Math.round(pLeft) + " g" : "已达标";
+  var kTxt = kLeft > 0 ? "还可吃 " + Math.round(kLeft) : "超出 " + Math.round(-kLeft) + " kcal";
+  h += '<div class="diet-rings">';
+  h += '<div class="diet-ring-card" data-act="editP"><div class="ring">' +
+    svgRing(np / tp, "var(--blue)") + '<div class="rv"><b>' + Math.round(np) + '</b></div></div>' +
+    '<div class="diet-ring-label">/ ' + tp + ' g 蛋白 · ' + pTxt + '</div></div>';
+  h += '<div class="diet-ring-card" data-act="editK"><div class="ring">' +
+    svgRing(nk / tk, "var(--orange)") + '<div class="rv"><b>' + Math.round(nk) + '</b></div></div>' +
+    '<div class="diet-ring-label">/ ' + tk + ' kcal · ' + kTxt + '</div></div>';
   h += "</div>";
-  h += '<div class="diet-eq">消耗 <b>' + num(st.tdee) + "</b> − 缺口 <b>" +
-    num(mode === "train" ? st.deficitTrain : st.deficitRest) + "</b>（" +
-    (mode === "train" ? "训练日" : "休息日") + "）= 今天吃 <b>" + tk + " kcal</b></div>";
-  var left = tp - np;
-  h += '<div style="text-align:center;font-size:14px;color:var(--tx2);padding:6px 0 2px">' +
-    (left > 0 ? "还差 <b style='color:var(--blue)'>" + Math.round(left) + " g</b> 蛋白" : "<b style='color:var(--green)'>蛋白达标了</b>，保持") + "</div>";
-  h += "</div></div></div>";
 
   /* 记一顿：点几样常吃的 → 自动算出这顿多少热量和蛋白 → 加进今天 */
   h += '<div class="sec" style="margin-top:14px"><div class="sec-t">这顿吃了什么</div>';
   h += '<div class="pad" style="padding-bottom:8px"><button class="btn" data-act="mealSheet">记一顿</button></div>';
   h += '<div class="card">' + mealRowsHTML(today) + "</div></div>";
-
-  h += '<div class="pad" style="padding-top:10px"><button class="btn sec sm" data-act="editP">输入今天的数值</button></div>';
 
   /* 最近 7 天 */
   var rows = "";
@@ -1581,8 +1629,11 @@ document.addEventListener("pointerdown", function (e) {
   clearTimeout(lpTimer);
   lpTimer = setTimeout(function () {
     if (!lpEl) return;
+    var kind = lpEl.getAttribute("data-longpress");
     var eid = lpEl.getAttribute("data-ex");
-    if (eid) cueSheet(eid);
+    if (kind === "copyAll" && eid) copyAll(eid);
+    else if (kind === "calPick") openCalPicker();
+    else if (kind === "ex" && eid) openCtxMenu(lpEl, eid);
     suppressClickUntil = Date.now() + 300;
     vibrate(15);
     lpEl = null;
@@ -1599,6 +1650,22 @@ document.addEventListener("pointermove", function (e) {
     clearTimeout(lpTimer); lpEl = null; lpStart = null;
   }, { passive: true });
 });
+
+var calSwipe = null;
+document.addEventListener("touchstart", function (e) {
+  if (U.tab !== "cal" || U.calSeg !== "month") return;
+  if (!e.target.closest(".cal") || e.touches.length !== 1) return;
+  calSwipe = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+}, { passive: true });
+document.addEventListener("touchend", function (e) {
+  if (!calSwipe) return;
+  var t = e.changedTouches[0];
+  var dx = t.clientX - calSwipe.x, dy = t.clientY - calSwipe.y;
+  calSwipe = null;
+  if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+  suppressClickUntil = Date.now() + 300;
+  calShift(dx < 0 ? 1 : -1);
+}, { passive: true });
 
 document.addEventListener("click", function (e) {
   if (Date.now() < suppressClickUntil) return;
@@ -1621,9 +1688,10 @@ document.addEventListener("click", function (e) {
     case "togWarm": $("#warmCard").hidden = !$("#warmCard").hidden; $("#warmTog").textContent = $("#warmCard").hidden ? "展开" : "收起"; break;
     case "togWarm2": $("#warmCard2").hidden = !$("#warmCard2").hidden; $("#warmTog2").textContent = $("#warmCard2").hidden ? "展开" : "收起"; break;
     case "start":
-      ensureLog(ds(), todayDayId()); U.pickedDay = null; save("logs"); render(); Focus.enter(); break;
+      ensureLog(ds(), todayDayId()); U.pickedDay = null; save("logs"); render();
+      Focus.enter(null, null, document.querySelector(".train-hero")); break;
     case "focus":
-      Focus.enter(); break;
+      Focus.enter(null, null, t); break;
     case "scrollTable":
       var stw = document.getElementById("trainListWrap");
       if (stw) stw.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1659,8 +1727,8 @@ document.addEventListener("click", function (e) {
     case "calSeg": U.calSeg = t.getAttribute("data-v"); render(); break;
     case "bodySeg": U.bodySeg = t.getAttribute("data-v"); render(); break;
     case "planSeg": U.planDay = t.getAttribute("data-v"); render(); break;
-    case "calPrev": U.calMonth = new Date(U.calMonth.getFullYear(), U.calMonth.getMonth() - 1, 1); render(); break;
-    case "calNext": U.calMonth = new Date(U.calMonth.getFullYear(), U.calMonth.getMonth() + 1, 1); render(); break;
+    case "calPrev": calShift(-1); break;
+    case "calNext": calShift(1); break;
     case "pickDate": U.selDate = t.getAttribute("data-d"); render(); break;
     case "delLog": delLog(t.getAttribute("data-d")); break;
     case "addWeight": weightSheet(); break;
@@ -1783,7 +1851,7 @@ function copyAll(eid) {
     if (src) { arr[i].w = src.w; arr[i].r = src.r; arr[i].rir = src.rir; arr[i].d = !!(src.w || src.r); }
   }
   save("logs"); render();
-  toast("已填入上次的数据，按实际改");
+  toast("已全部照上次填入，按实际改");
 }
 /* 「今天照上次填好」：把今天所有动作一次按上次填满。
    跟「全部照上次」的区别：不动 d（不打勾），所以填完还是要一组一组点 ✓。
@@ -1862,7 +1930,8 @@ var Focus = (function () {
     on: false, mode: "focus", eid: null, si: null,
     restEnd: 0, restTotal: 0, restTick: null, warned: false,
     undo: null, undoT: null, lastDone: null,
-    exitArmed: false, exitT: null, clock: null
+    exitArmed: false, exitT: null, clock: null,
+    expanderEl: null, expandT: null
   };
 
   function root() { return $("#focusRoot"); }
@@ -2000,8 +2069,7 @@ var Focus = (function () {
     var next = nextFrom(c.eid, c.si);
     var nextEx = next ? findEx(next.eid) : null;
     var nextSet = next ? ensureSets(today(), nextEx)[next.si] : null;
-    var target = ex.s + "×" + esc(ex.r);
-    var lastTxt = (c.src && (c.src.w || c.src.r)) ? ((c.src.w || "—") + " × " + (c.src.r || "—")) : "第一次";
+    var target = ex.s + " × " + esc(ex.r);
     var hint = c.si >= ex.s - 1 ? "本动作最后一组" : "还剩 " + (ex.s - c.si - 1) + " 组";
     var bars = c.arr.map(function (s, i) {
       return '<i class="' + (s.d ? "done" : i === c.si ? "cur" : "") + '"></i>';
@@ -2020,7 +2088,7 @@ var Focus = (function () {
         '<div class="focus-card">' +
           '<div class="focus-setnum"><b>' + (c.si + 1) + '</b><span>/ ' + ex.s + ' 组</span><span class="focus-hint">' + hint + '</span></div>' +
           '<div class="focus-name">' + esc(ex.n) + '</div>' +
-          '<div class="focus-last"><span>目标 <b>' + target + '</b></span><span>上次 <b>' + lastTxt + '</b></span></div>' +
+          '<div class="focus-last"><span>目标 <b>' + target + '</b></span></div>' +
         '</div>' +
         '<div class="focus-progress"><div class="focus-bars">' + bars + '</div>' +
           '<div class="focus-progress-l"><b>本动作 ' + ex.s + ' 组 · 全场 ' + c.doneSets + ' / ' + c.totalSets + '</b></div>' +
@@ -2188,6 +2256,7 @@ var Focus = (function () {
   function finishRest() {
     stopRest();
     beep(); vibrate([120, 60, 120]);
+    speak("休息结束，准备下一组");
     toast("休息结束，下一组！");
     var next = S.lastDone ? nextFrom(S.lastDone.eid, S.lastDone.si) : null;
     S.lastDone = null;
@@ -2196,7 +2265,38 @@ var Focus = (function () {
     render();
   }
 
-  function enter(eid, si) {
+  /* 从「继续训练」黑卡（或点下去的那个按钮）扩大成整屏。
+     先把一个纯黑块放在原位置，再把它拉到 0/0/100vw/100vh；
+     专注页在下面同步淡入，黑块结束时正好接上。 */
+  function expandFrom(fromEl, done) {
+    if (!fromEl || !fromEl.getBoundingClientRect) { done(); return; }
+    var r = fromEl.getBoundingClientRect();
+    var cs = window.getComputedStyle ? getComputedStyle(fromEl) : null;
+    var d = document.createElement("div");
+    d.className = "focus-expander";
+    d.style.left = r.left + "px";
+    d.style.top = r.top + "px";
+    d.style.width = r.width + "px";
+    d.style.height = r.height + "px";
+    d.style.borderRadius = (cs && cs.borderRadius) || "16px";
+    document.body.appendChild(d);
+    S.expanderEl = d;
+    void d.offsetWidth;
+    d.style.left = "0px";
+    d.style.top = "0px";
+    d.style.width = "100vw";
+    d.style.height = "100vh";
+    d.style.borderRadius = "0px";
+    clearTimeout(S.expandT);
+    S.expandT = setTimeout(function () {
+      if (S.expanderEl === d) S.expanderEl = null;
+      d.remove();
+      if (root()) root().style.pointerEvents = "";
+      done();
+    }, 540);
+  }
+
+  function enter(eid, si, origin) {
     if (todayDayId() === "rest") {
       toast("今天休息，想练就从「换一天」里挑一天");
       return;
@@ -2209,6 +2309,11 @@ var Focus = (function () {
     S.restEnd = 0; S.restTotal = 0;
     S.undo = null; S.lastDone = null; S.exitArmed = false; S.warned = false;
     clearTimeout(S.closeT);
+    if (S.expanderEl) {
+      clearTimeout(S.expandT);
+      try { S.expanderEl.remove(); } catch (e) {}
+      S.expanderEl = null;
+    }
     document.body.classList.add("focusing");
     root().hidden = false;
     root().classList.remove("on");
@@ -2221,7 +2326,15 @@ var Focus = (function () {
     updateClock();
     Rest.keepAwake(true);
     render();
-    requestAnimationFrame(function () { if (S.on) root().classList.add("on"); });
+    var from = null;
+    if (origin && origin.closest) from = origin.closest(".train-hero") || origin;
+    if (from && from.getBoundingClientRect) {
+      root().style.pointerEvents = "none";
+      requestAnimationFrame(function () { if (S.on) root().classList.add("on"); });
+      expandFrom(from, function () {});
+    } else {
+      requestAnimationFrame(function () { if (S.on) root().classList.add("on"); });
+    }
   }
 
   function close(skipRender) {
@@ -2231,9 +2344,52 @@ var Focus = (function () {
     S.on = false; S.mode = "focus"; S.eid = null; S.si = null;
     S.restEnd = 0; S.restTotal = 0; S.warned = false;
     S.undo = null; S.lastDone = null; S.exitArmed = false;
-    if (root()) {
-      root().classList.remove("on");
-      var el = root();
+    if (S.expanderEl) {
+      clearTimeout(S.expandT);
+      try { S.expanderEl.remove(); } catch (e) {}
+      S.expanderEl = null;
+      if (root()) root().style.pointerEvents = "";
+    }
+
+    /* 退出也走同一套：先盖一张全屏黑，再把黑块缩回「继续训练」主卡。 */
+    var collapse = !skipRender && U.tab === "train";
+    var el = root();
+    if (collapse && el) {
+      var d = document.createElement("div");
+      d.className = "focus-expander";
+      d.style.left = "0px"; d.style.top = "0px";
+      d.style.width = "100vw"; d.style.height = "100vh";
+      d.style.borderRadius = "0px";
+      document.body.appendChild(d);
+      S.expanderEl = d;
+      el.classList.remove("on");
+      el.hidden = true; el.innerHTML = ""; el.style.pointerEvents = "";
+      document.body.classList.remove("focusing");
+      Rest.keepAwake(false);
+      applyThemeMode(getThemeMode());
+      renderCurrentTab();
+      window.scrollTo(0, 0);
+      var target = document.querySelector(".train-hero");
+      if (target) {
+        var r = target.getBoundingClientRect();
+        var rad = (window.getComputedStyle && getComputedStyle(target).borderRadius) || "26px";
+        void d.offsetWidth;
+        d.style.left = r.left + "px"; d.style.top = r.top + "px";
+        d.style.width = r.width + "px"; d.style.height = r.height + "px";
+        d.style.borderRadius = rad;
+        clearTimeout(S.expandT);
+        S.expandT = setTimeout(function () {
+          try { d.remove(); } catch (e) {}
+          if (S.expanderEl === d) S.expanderEl = null;
+        }, 540);
+      } else {
+        d.remove(); S.expanderEl = null;
+      }
+      return;
+    }
+
+    if (el) {
+      el.classList.remove("on");
       clearTimeout(S.closeT);
       S.closeT = setTimeout(function () { el.hidden = true; el.innerHTML = ""; }, 360);
     }
@@ -2388,15 +2544,63 @@ function pickDaySheet() {
   };
 }
 
-function cueSheet(eid) {
+var ctxWrap = null;
+function closeCtx() {
+  if (!ctxWrap) return;
+  var w = ctxWrap; ctxWrap = null;
+  w.classList.remove("on");
+  setTimeout(function () { try { w.remove(); } catch (e) {} }, 200);
+}
+function openCtxMenu(el, eid) {
   var ex = findEx(eid); if (!ex) return;
-  var h = '<div class="card"><div class="card-pad">' +
-    '<div style="font-size:21px;font-weight:700;letter-spacing:-.4px">' + esc(ex.n) + '</div>' +
-    '<div style="font-size:13px;color:var(--tx2);margin-top:4px">' + esc(ex.mg) + " · " + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + 's</div>' +
-    (ex.c ? '<div style="font-size:15px;color:var(--tx2);margin-top:12px;line-height:1.7">' + rich(ex.c) + '</div>' : '<div class="note">这个动作还没有写要点。</div>') +
-    (ex.b ? '<div style="font-size:13px;color:var(--tx3);margin-top:8px">呼吸：' + esc(ex.b) + '</div>' : '') +
-    '</div></div>';
-  openSheet("动作要点", h, null, "关闭");
+  closeCtx();
+  var dayId = null;
+  D.plan.days.forEach(function (d) {
+    if (d.ex.some(function (x) { return x.id === eid; })) dayId = d.id;
+  });
+  var hasLog = !!D.logs[ds()];
+  var icoInfo = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 7h10M7 12h10M7 17h6"/></svg>';
+  var icoCopy = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="12" rx="2.5"/><path d="M15 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/></svg>';
+  var icoEdit = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.5 2.5 0 0 0-3.5-3.5L4.5 16.5 4 20z"/><path d="M13.5 7.5l3.5 3.5"/></svg>';
+  var h = '<div class="ctx-menu">' +
+    '<div class="ctx-head"><div class="ctx-name">' + esc(ex.n) + '</div>' +
+    '<div class="ctx-meta">' + esc(ex.mg) + " · " + ex.s + "×" + esc(ex.r) + " · 休息 " + ex.rest + 's</div>' +
+    (ex.c ? '<div class="ctx-cue">' + rich(ex.c) + '</div>' : '') + '</div>' +
+    '<button class="ctx-item" data-ctx="info"><span class="ci">' + icoInfo + '</span>看完整记录<span class="chev">›</span></button>' +
+    (hasLog ? '<button class="ctx-item" data-ctx="all"><span class="ci">' + icoCopy + '</span>全部照上次<span class="chev">›</span></button>' : '') +
+    '<button class="ctx-item" data-ctx="edit"><span class="ci">' + icoEdit + '</span>编辑动作<span class="chev">›</span></button>' +
+    '</div>';
+  var w = document.createElement("div");
+  w.className = "ctx-wrap";
+  w.innerHTML = h;
+  document.body.appendChild(w);
+  var menu = w.querySelector(".ctx-menu");
+  var r = el.getBoundingClientRect();
+  var ghost = el.cloneNode(true);
+  ghost.className += " ctx-ghost";
+  ghost.style.left = r.left + "px";
+  ghost.style.top = r.top + "px";
+  ghost.style.width = r.width + "px";
+  ghost.style.height = r.height + "px";
+  w.insertBefore(ghost, menu);
+  menu.style.top = (r.bottom + 10) + "px";
+  var mh = menu.offsetHeight;
+  var top = r.bottom + 10;
+  if (top + mh > window.innerHeight - 16) top = Math.max(16, window.innerHeight - mh - 16);
+  menu.style.top = top + "px";
+  w.onclick = function (e) {
+    if (e.target === w) { closeCtx(); return; }
+    var item = e.target.closest("[data-ctx]"); if (!item) return;
+    var a = item.getAttribute("data-ctx");
+    closeCtx();
+    setTimeout(function () {
+      if (a === "info") exInfoSheet(eid);
+      else if (a === "all") copyAll(eid);
+      else if (a === "edit") exEditorSheet(eid, dayId);
+    }, 180);
+  };
+  ctxWrap = w;
+  requestAnimationFrame(function () { w.classList.add("on"); });
 }
 
 function exInfoSheet(eid) {
@@ -2769,6 +2973,8 @@ function mealSheet(date) {
   sheetRefresh = function () { return mealSheetHTML(dr); };
 
   $("#sheetBody").onclick = function (e) {
+    var nmBtn = e.target.closest('[data-act="nutriFromMeal"]');
+    if (nmBtn) { nutriSheet(ds(), "p"); return; }
     var t = e.target.closest("[data-ms],[data-mf],[data-mqi],[data-mr],[data-mfnew],[data-mfe],[data-fme],[data-fmg]");
     if (!t) return;
 
@@ -2847,6 +3053,7 @@ function mealSheetHTML(dr) {
   h += '<div class="seg" style="margin:0 0 14px">' + ["早", "午", "晚", "加"].map(function (s) {
     return '<button data-ms="' + s + '" class="' + (dr.meal === s ? "on" : "") + '">' + s + "餐</button>";
   }).join("") + "</div>";
+  h += '<div style="display:flex;justify-content:flex-end;margin:-4px 0 10px"><button class="qb mini gray" data-act="nutriFromMeal">输入今天的数值</button></div>';
 
   if (dr.items.length) {
     h += '<div class="sec" style="margin:16px 0 12px"><div class="sec-t">这一顿（' + dr.items.length + "）</div><div class=\"card\">";
@@ -3143,6 +3350,19 @@ function settingsSheet() {
   });
   h += "</div></div>";
 
+  h += '<div class="sec"><div class="sec-t">训练反馈</div><div class="card">';
+  [
+    ["haptic", "触觉反馈", "完成本组时震动"],
+    ["sound", "提示音", "完成与休息结束短音"],
+    ["voice", "语音播报", "休息结束语音提醒"]
+  ].forEach(function (o) {
+    var on = s[o[0]] !== false;
+    h += '<div class="row" data-act="togFb" data-k="' + o[0] + '">' +
+      '<div class="rl"><div class="rt">' + o[1] + '</div><div class="rs">' + o[2] + '</div></div>' +
+      '<span class="sw ' + (on ? "on" : "") + '" id="sw-' + o[0] + '"></span></div>';
+  });
+  h += "</div></div>";
+
   h += '<div class="sec"><div class="sec-t">记录</div><div class="card">';
   h += '<div class="row" data-act="togRir"><div class="rl"><div class="rt">显示 RIR 列</div>' +
     '<div class="rs">RIR = 这组做完还能再做几次。不填也行，默认关</div></div>' +
@@ -3189,6 +3409,18 @@ function settingsSheet() {
     }
     else if (a === "theme") {
       setThemeMode(r.getAttribute("data-v"));
+    }
+    else if (a === "togFb") {
+      var k = r.getAttribute("data-k");
+      s[k] = (s[k] === false);      /* false → true，其他都是 true */
+      save("settings");
+      var sw = document.getElementById("sw-" + k);
+      if (sw) sw.classList.toggle("on", s[k] !== false);
+      if (s[k] !== false) {
+        if (k === "haptic") vibrate(20);
+        else if (k === "sound") beep();
+        else if (k === "voice") speak("语音提醒已开启");
+      }
     }
   };
 }

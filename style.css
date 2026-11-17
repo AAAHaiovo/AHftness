@@ -38,6 +38,9 @@
   --field-bg:#EFF1F5;
   --field-line:rgba(17,17,20,.06);
 
+  --f:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --fm:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+
   /* 交互语义 */
   --ring-track:#E5E5EA;
   --cal-sel-bg:#000000;
@@ -327,9 +330,9 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
   box-shadow:0 0 0 .5px rgba(216,255,71,.28);
 }
 .ex-set{
-  flex:none; font-size:13px; font-weight:600; color:var(--blue);
-  background:var(--blue-t); padding:3px 9px; border-radius:8px;
-  white-space:nowrap; font-variant-numeric:tabular-nums;
+  flex:none; font-family:var(--fm); font-size:12px; line-height:1.2; font-weight:500;
+  color:var(--tx2); background:transparent; padding:0; border-radius:0;
+  white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:-.02em;
 }
 /* 动作要点：按「·」拆开，居中排一行。
    之前每点是带底色的方块，视觉太重把动作名都压住了，
@@ -473,6 +476,23 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 /* 旧的 8px 部位文字标签已改用 4px 点，详情放到日期下方 */
 .cal-d .dtag{display:none}
 
+/* 长按年月：选年 / 选月 */
+.cal-pick{padding:0 var(--gap)}
+.cal-pick-year{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0 16px}
+.cal-pick-year b{font:700 22px var(--fm); letter-spacing:-.03em}
+.cal-pick-year button{
+  width:40px; height:40px; border-radius:50%; background:var(--fill); color:var(--tx);
+  font-size:20px; display:grid; place-items:center;
+}
+.cal-pick-year button:disabled{opacity:.3}
+.cal-pick-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.cal-pick-grid button{
+  height:46px; border-radius:12px; background:var(--field-bg); color:var(--tx);
+  font-size:15px; font-weight:600; box-shadow:inset 0 0 0 1px var(--field-line);
+}
+.cal-pick-grid button.on{background:var(--tx); color:var(--card); box-shadow:none}
+.cal-pick-grid button:disabled{opacity:.3}
+
 /* 热力图 */
 .heat{padding:4px var(--gap) 8px}
 .heat-row{display:flex; align-items:center; gap:8px; margin-bottom:9px}
@@ -521,6 +541,19 @@ html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
 }
 .ring .rv b{font-size:23px; font-weight:700; letter-spacing:-.6px; color:var(--tx)}
 .ring .rv s{text-decoration:none; font-size:11px; color:var(--tx2); margin-top:1px}
+
+/* 饮食双环：两张独立卡片，环下只留一行目标 + 余量 */
+.diet-rings{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 var(--gap) 14px}
+.diet-ring-card{
+  background:var(--card); border-radius:var(--r); box-shadow:var(--sh-1);
+  padding:16px 8px 14px; text-align:center; transition:background .3s ease;
+}
+.diet-ring-card .ring{margin:0 auto}
+.diet-ring-card .ring .rv b{font-size:30px}
+.diet-ring-label{
+  font-size:12.5px; color:var(--tx2); line-height:1.5;
+  margin-top:12px; min-height:38px; font-variant-numeric:tabular-nums;
+}
 
 /* ---------------- 照片 ---------------- */
 .ph-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 var(--gap)}
@@ -606,6 +639,50 @@ html[data-theme="dark"] .sheet .btn.danger{background:#2C2C2E}
 .sheet-act{font-size:17px; color:var(--blue); padding:6px 2px}
 .sheet-act.strong{font-weight:700}
 .sheet-body{overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:20px}
+
+/* iOS 风格长按菜单 */
+.ctx-wrap{
+  position:fixed; inset:0; z-index:260;
+  background:rgba(0,0,0,.16);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  opacity:0; transition:opacity .18s;
+}
+.ctx-wrap.on{opacity:1}
+.ctx-menu{
+  position:fixed; left:16px; width:calc(100vw - 32px); max-width:340px; z-index:262;
+  background:rgba(250,250,252,.94);
+  -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%);
+  border-radius:18px; overflow:hidden;
+  box-shadow:0 20px 50px -20px rgba(0,0,0,.45), 0 0 0 .5px rgba(0,0,0,.08);
+  transform:scale(.94); opacity:0;
+  transition:transform .18s cubic-bezier(.32,.72,0,1), opacity .18s;
+}
+.ctx-wrap.on .ctx-menu{transform:none; opacity:1}
+.ctx-ghost{
+  position:fixed; z-index:261; pointer-events:none; overflow:hidden;
+  background:var(--card); border-radius:14px;
+  box-shadow:0 12px 30px -10px rgba(0,0,0,.30);
+}
+.ctx-head{padding:14px 16px 12px; border-bottom:.5px solid var(--line)}
+.ctx-name{font-size:18px; font-weight:700; letter-spacing:-.3px}
+.ctx-meta{font-size:12.5px; color:var(--tx2); margin-top:3px}
+.ctx-cue{
+  font-size:12.5px; color:var(--tx2); line-height:1.55; margin-top:8px;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+}
+.ctx-item{
+  display:flex; align-items:center; gap:12px; width:100%; height:50px; padding:0 16px;
+  font-size:16px; color:var(--tx); text-align:left; border-top:.5px solid var(--line);
+}
+.ctx-item:first-of-type{border-top:none}
+.ctx-item:active{background:var(--line2)}
+.ctx-item .ci{flex:none; width:22px; height:22px; display:grid; place-items:center; color:var(--tx)}
+.ctx-item .ci svg{width:20px; height:20px; display:block}
+.ctx-item .chev{margin-left:auto; color:var(--tx3); font-size:18px}
+.ctx-item.danger{color:var(--red)}
+.ctx-item.danger .ci{color:var(--red)}
+html[data-theme="dark"] .ctx-wrap{background:rgba(0,0,0,.35)}
+html[data-theme="dark"] .ctx-menu{background:rgba(44,44,46,.94); box-shadow:0 20px 50px -20px rgba(0,0,0,.8), 0 0 0 .5px rgba(255,255,255,.10)}
 
 /* 设置里的外观选项 */
 .theme-opt .tick{
@@ -969,7 +1046,7 @@ html[data-theme="dark"] .train-hero{
 .tl-i{flex:1; min-width:0}
 .tl-i b{display:block; font-size:16px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .tl-i small{display:block; font-size:12px; color:var(--tx2); margin-top:2px}
-.tl-r{flex:none; text-align:right; font:600 13px var(--fm); color:var(--tx2); white-space:nowrap; font-variant-numeric:tabular-nums}
+.tl-r{flex:none; text-align:right; font:500 12.5px var(--fm); color:var(--tx2); white-space:nowrap; font-variant-numeric:tabular-nums}
 .tl-r small{display:block; font-size:11px; color:var(--tx3); font-family:var(--f); margin-top:2px}
 .train-list .chev{flex:none; color:var(--tx3); font-size:20px; line-height:1; margin-left:-2px}
 
@@ -998,8 +1075,8 @@ html[data-theme="dark"] .train-hero{
   font:600 11px var(--fm); font-variant-numeric:tabular-nums;
 }
 .plan-i{flex:1; min-width:0}
-.plan-i b{display:block; font-size:16px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.plan-i small{display:block; font-size:13px; color:var(--tx2); margin-top:3px; font-variant-numeric:tabular-nums}
+.plan-i b{display:block; font-size:15px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.plan-i small{display:block; font-size:12.5px; color:var(--tx2); margin-top:3px; font-variant-numeric:tabular-nums}
 .plan-row .chev{flex:none; color:var(--tx3); font-size:19px; line-height:1}
 .train-toolbar{display:flex; gap:8px; padding:0 var(--gap) 12px}
 #trainListWrap{scroll-margin-top:70px}
@@ -1022,6 +1099,14 @@ html[data-theme="dark"] .train-hero{
 }
 .focus-wrap.on{opacity:1; transform:none}
 .focus-wrap[hidden]{display:none !important}
+.focus-expander{
+  position:fixed; z-index:151; background:#000; pointer-events:none;
+  box-shadow:0 18px 40px -24px rgba(0,0,0,.55);
+  transition:left .52s cubic-bezier(.4,0,.2,1), top .52s cubic-bezier(.4,0,.2,1),
+             width .52s cubic-bezier(.4,0,.2,1), height .52s cubic-bezier(.4,0,.2,1),
+             border-radius .52s cubic-bezier(.4,0,.2,1);
+  will-change:left, top, width, height, border-radius;
+}
 body.focusing{overflow:hidden}
 .focus-top{
   flex:none; min-height:44px; padding:0 20px;
