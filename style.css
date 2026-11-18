@@ -627,6 +627,15 @@ html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
 .seg button.on{background:var(--card); color:var(--tx); box-shadow:0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04)}
 html[data-theme="dark"] .seg button.on{background:#48484A; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35)}
 
+/* 分段内容切换：淡出 → 换内容 → 淡入，高度也跟着走 */
+.seg-panel{
+  transition:opacity .16s ease, transform .22s cubic-bezier(.32,.72,0,1),
+             height .26s cubic-bezier(.32,.72,0,1);
+  will-change:opacity, transform;
+}
+.seg-panel.seg-leave{opacity:0; transform:translateY(3px)}
+.seg-panel.seg-enter{opacity:0; transform:translateY(6px); transition:none}
+
 /* ---------------- 底部弹层 ---------------- */
 .sheet-wrap{position:fixed; inset:0; z-index:200}
 .sheet-mask{
