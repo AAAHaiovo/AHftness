@@ -1,6 +1,6 @@
 /* Service Worker —— 让 App 离线也能用
    策略：安装时把静态文件全部缓存；之后优先走缓存，后台悄悄更新。 */
-var CACHE = "fitness-v18";
+var CACHE = "fitness-v11";
 var ASSETS = [
   "./",
   "./index.html",
@@ -9,8 +9,7 @@ var ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/icon-512-maskable.png"
+  "./icons/icon-512.png"
 ];
 
 self.addEventListener("install", function (e) {
