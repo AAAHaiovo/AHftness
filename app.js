@@ -668,11 +668,13 @@ function svgLine(series, opt) {
 function svgRing(pct, color, size) {
   size = size || 104;
   var r = size / 2 - 8, c = 2 * Math.PI * r;
-  pct = clamp(num(pct), 0, 1);   /* NaN 过 clamp 还是 NaN，会让 dasharray 变成非法值，圆环被画满 */
-  var fill = pct > 0
-    ? '<circle class="ring-fill" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" style="stroke:' + color + '" stroke-width="9" stroke-linecap="round"' +
-      ' stroke-dasharray="' + (c * pct).toFixed(1) + ' ' + c.toFixed(1) + '"/>'
-    : "";
+  pct = clamp(num(pct), 0, 1);   /* NaN 过 clamp 还是 NaN，会让 dashoffset 变成非法值，圆环被画满 */
+  /* 用「整圈 dasharray + 变化的 dashoffset」画弧：
+     百分比变化时只改 dashoffset，CSS 就能把彩色圆弧平滑地拉长 / 缩短。
+     pct = 0 时也保留这个圆（整圈偏移出视野），方便从 0 开始长出颜色。 */
+  var fill = '<circle class="ring-fill" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none"' +
+    ' style="stroke:' + color + ';stroke-dasharray:' + c.toFixed(1) + ';stroke-dashoffset:' + (c * (1 - pct)).toFixed(1) + '"' +
+    ' stroke-width="9" stroke-linecap="round"/>';
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
     '<circle class="ring-track" cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" fill="none" stroke-width="9"/>' +
     fill + '</svg>';
@@ -689,6 +691,7 @@ var Rest = (function () {
   function show(on) {
     el().hidden = !on;
     document.body.classList.toggle("resting", on);
+    syncViewScroll();
   }
   function start(sec, label) {
     total = sec; endAt = Date.now() + sec * 1000;
@@ -874,6 +877,13 @@ function renderCurrentTab() {
   if (calPopEl) closeCalPicker(true);   /* 换页 / 换月时，年月下拉不该浮在上面 */
   U.urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
   U.urls = [];
+  /* 在换掉饮食页之前记下两个圈当前的百分比；
+     换完以后如果数值变了，就让彩色圆弧自己伸缩过去。 */
+  var ringP = null, ringK = null;
+  if (U.tab === "diet") {
+    ringP = ringPct("dietRingP");
+    ringK = ringPct("dietRingK");
+  }
   var html;
   if (U.tab === "train") html = viewTrain();
   else if (U.tab === "cal") html = viewCal();
@@ -883,6 +893,20 @@ function renderCurrentTab() {
   $("#view").innerHTML = '<div class="view-inner" id="viewInner">' + html + "</div>";
   setHeader();
   if (U.tab === "train") restoreFocus();
+  if (U.tab === "diet") {
+    var nextP = ringPct("dietRingP"), nextK = ringPct("dietRingK");
+    if (ringP != null && nextP != null) animateRingArc("dietRingP", ringP, nextP);
+    if (ringK != null && nextK != null) animateRingArc("dietRingK", ringK, nextK);
+  }
+  syncViewScroll();
+}
+
+/* 内容不足一屏时锁住滚动：休息日这种短页面向下滑，
+   整块界面不会再跟着 iOS 回弹。 */
+function syncViewScroll() {
+  var v = $("#view");
+  if (!v) return;
+  v.classList.toggle("no-scroll", v.scrollHeight <= v.clientHeight + 1);
 }
 function render() {
   if (!READY) return;
@@ -906,18 +930,54 @@ function tabIndex(id) {
   return 0;
 }
 
+function ringPct(wrapId) {
+  var fill = document.querySelector("#" + wrapId + " .ring-fill");
+  if (!fill) return null;
+  var r = (fill.r && fill.r.baseVal) ? fill.r.baseVal.value : 44;
+  var c = 2 * Math.PI * r;
+  var off = parseFloat(getComputedStyle(fill).strokeDashoffset);
+  if (isNaN(off)) off = parseFloat(fill.style.strokeDashoffset) || 0;
+  return clamp(1 - off / c, 0, 1);
+}
+
+/* 只让圆环里的彩色圆弧动：把新的圆弧先按旧百分比画出来，
+   再在下一帧改到新百分比，CSS 过渡会把弧拉长 / 缩短。 */
+function animateRingArc(wrapId, fromPct, toPct) {
+  var fill = document.querySelector("#" + wrapId + " .ring-fill");
+  if (!fill) return;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  fromPct = clamp(num(fromPct), 0, 1);
+  toPct = clamp(num(toPct), 0, 1);
+  if (reduce || Math.abs(fromPct - toPct) < 0.001) return;
+  var r = (fill.r && fill.r.baseVal) ? fill.r.baseVal.value : 44;
+  var c = 2 * Math.PI * r;
+  /* 先把新圆环退到旧百分比，并且这一帧不要过渡；
+     等它真正画到屏幕上之后，下一帧再改到新百分比，
+     CSS 就会把蓝色 / 橙色那段弧从旧长度拉到新长度。 */
+  fill.style.transition = "none";
+  fill.style.strokeDashoffset = (c * (1 - fromPct)).toFixed(1);
+  void fill.getBoundingClientRect();
+  fill.style.transition = "";
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      fill.style.strokeDashoffset = (c * (1 - toPct)).toFixed(1);
+    });
+  });
+}
+
 /* 底部标签切换：新页面从标签顺序的方向轻轻滑入 + 淡入。
    只动 transform / opacity，长列表也走合成层，不会卡。 */
 function switchTab(next) {
   if (!next) return;
+  var scroller = $("#view");
   if (next === U.tab) {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
     return;
   }
   var dir = tabIndex(next) > tabIndex(U.tab) ? 1 : -1;
   U.tab = next;
   try { history.replaceState(null, "", "#" + next); } catch (e) {}
-  window.scrollTo({ top: 0, behavior: "instant" });
+  if (scroller) scroller.scrollTop = 0;
   render();
   var inner = document.getElementById("viewInner");
   if (inner) {
@@ -1919,8 +1979,16 @@ document.addEventListener("click", function (e) {
   var si = t.getAttribute("data-si");
 
   switch (act) {
-    case "togWarm": $("#warmCard").hidden = !$("#warmCard").hidden; $("#warmTog").textContent = $("#warmCard").hidden ? "展开" : "收起"; break;
-    case "togWarm2": $("#warmCard2").hidden = !$("#warmCard2").hidden; $("#warmTog2").textContent = $("#warmCard2").hidden ? "展开" : "收起"; break;
+    case "togWarm":
+      $("#warmCard").hidden = !$("#warmCard").hidden;
+      $("#warmTog").textContent = $("#warmCard").hidden ? "展开" : "收起";
+      syncViewScroll();
+      break;
+    case "togWarm2":
+      $("#warmCard2").hidden = !$("#warmCard2").hidden;
+      $("#warmTog2").textContent = $("#warmCard2").hidden ? "展开" : "收起";
+      syncViewScroll();
+      break;
     case "start":
       ensureLog(ds(), todayDayId()); U.pickedDay = null; save("logs"); render();
       Focus.enter(null, null, document.querySelector(".train-hero")); break;
@@ -2013,10 +2081,8 @@ document.addEventListener("click", function (e) {
       var no = D.nutri[dn] || { p: 0, k: 0 };
       no.mode = mm; D.nutri[dn] = no;
       save("nutri");
-      /* 整页不做过场，只让两个圈里的数字 / 目标淡入更新。 */
+      /* renderCurrentTab 会拿旧圆弧做起点，让颜色在圈内自己变长 / 变短。 */
       render();
-      animateInById("dietRingP", "ring-swap");
-      animateInById("dietRingK", "ring-swap");
       toast(mm === "train" ? "今天按训练日算" : "今天按休息日算");
       break;
     }
@@ -3893,10 +3959,15 @@ document.addEventListener("touchmove", function (e) {
   if (e.touches.length > 1) e.preventDefault();
 }, { passive: false });
 
-window.addEventListener("scroll", function () {
-  $("#hdr").classList.toggle("scrolled", window.scrollY > 12);
-  if (calPopEl) closeCalPicker(true);
-}, { passive: true });
+/* 只有内容区滚动；顶栏的「收起」状态也跟着内容区走。 */
+var viewScroller = $("#view");
+if (viewScroller) {
+  viewScroller.addEventListener("scroll", function () {
+    $("#hdr").classList.toggle("scrolled", viewScroller.scrollTop > 12);
+    if (calPopEl) closeCalPicker(true);
+  }, { passive: true });
+}
+window.addEventListener("resize", syncViewScroll, { passive: true });
 
 /* 页面切回前台时刷新倒计时 */
 document.addEventListener("visibilitychange", function () {

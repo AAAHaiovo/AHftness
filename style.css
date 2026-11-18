@@ -64,7 +64,7 @@
 
   --safe-t:env(safe-area-inset-top,0px);
   --safe-b:env(safe-area-inset-bottom,0px);
-  --hdrh:52px;
+  --hdrh:66px;
 
   /* 阴影 —— 很轻，只负责把白卡从灰底上抬起来 */
   --sh-1:0 1px 2px rgba(0,0,0,.03), 0 8px 24px -14px rgba(0,0,0,.16);
@@ -153,19 +153,22 @@ html[data-theme="dark"]{
 [hidden]{display:none !important}
 /* touch-action:manipulation = 只干掉「双击缩放」，单指滚动照常。
    这里千万不能写 none —— 那会把页面滚动一起杀掉。 */
-html{-webkit-text-size-adjust:100%; background:var(--bg); touch-action:manipulation; color-scheme:light}
+/* 固定外壳：页面本身不再滚动，只有 #view 这块内容区滚动。
+   这样短页面（比如休息日）向下滑时，顶栏和底栏不会跟着整页回弹。 */
+html{-webkit-text-size-adjust:100%; background:var(--bg); touch-action:manipulation;
+  height:100%; overflow:hidden; overscroll-behavior:none; color-scheme:light}
 html[data-theme="dark"]{color-scheme:dark}
 body{
   margin:0; background:var(--bg); color:var(--tx); touch-action:manipulation;
   font:17px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
   text-rendering:optimizeLegibility;
-  padding-bottom:calc(var(--tabh) + var(--safe-b) + 24px);
-  overscroll-behavior-y:none;
-  transition:padding-bottom .2s, background-color .3s ease, color .3s ease;
+  height:100%; overflow:hidden; display:flex; flex-direction:column;
+  padding-bottom:0; overscroll-behavior:none;
+  transition:background-color .3s ease, color .3s ease;
 }
 /* 休息倒计时浮起来的时候，再让出它的高度，最后一组别被盖住 */
-body.resting{padding-bottom:calc(var(--tabh) + var(--safe-b) + 78px)}
+body.resting #view{padding-bottom:calc(var(--tabh) + var(--safe-b) + 78px)}
 button,input,select,textarea{font-family:inherit; font-size:inherit; color:inherit}
 button{border:none; background:none; padding:0; cursor:pointer}
 a{color:var(--blue); text-decoration:none}
@@ -173,7 +176,7 @@ h1,h2,h3,h4,p{margin:0}
 
 /* ---------------- 顶栏 ---------------- */
 #hdr{
-  position:sticky; top:0; z-index:60;
+  position:sticky; top:0; z-index:60; flex:none;
   padding-top:var(--safe-t);
   background:rgba(242,242,247,.80);
   -webkit-backdrop-filter:saturate(180%) blur(20px);
@@ -184,11 +187,13 @@ h1,h2,h3,h4,p{margin:0}
 #hdr.scrolled{border-bottom-color:var(--line); background:rgba(242,242,247,.94)}
 html[data-theme="dark"] #hdr{background:rgba(0,0,0,.74)}
 html[data-theme="dark"] #hdr.scrolled{background:rgba(0,0,0,.90)}
+/* 顶栏高度固定：滚动时只缩小标题和品牌，不再改变顶栏占位，
+   避免短页面（比如休息日）一滑就整页上下跳 / 来回弹。 */
 .hdr-in{
-  min-height:var(--hdrh); display:flex; align-items:center; gap:10px;
-  padding:6px var(--gap);
+  height:var(--hdrh); min-height:var(--hdrh);
+  display:flex; align-items:center; gap:10px;
+  padding:8px var(--gap);
 }
-#hdr:not(.scrolled) .hdr-in{min-height:64px; padding:8px var(--gap)}
 .hdr-l{flex:1; min-width:0; display:flex; align-items:center; gap:10px}
 .hdr-titles{min-width:0; display:flex; flex-direction:column; justify-content:center; gap:1px}
 #hdrTitle{
@@ -241,7 +246,16 @@ html[data-theme="dark"] .brand{background:rgba(235,235,245,.12); color:#fff; box
 #hdr.plan-mode .hdr-edit{display:flex}
 
 /* ---------------- 主视图 ---------------- */
-#view{padding:8px 0 0}
+#view{
+  flex:1 1 auto; min-height:0;
+  overflow-x:hidden; overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  scrollbar-gutter:stable;
+  padding:8px 0 calc(var(--tabh) + var(--safe-b) + 24px);
+  outline:none;
+}
+#view.no-scroll{overflow-y:hidden}
 /* 标签页切换：新页面按标签顺序的方向轻轻滑入 + 淡入。
    只动 opacity / transform，长列表也走合成层。 */
 .view-inner{
@@ -587,7 +601,11 @@ html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
 .ring{position:relative; width:104px; height:104px}
 .ring svg{transform:rotate(-90deg)}
 .ring-track{stroke:var(--ring-track)}
-.ring-fill{transition:stroke .3s ease}
+/* 圆弧本身做伸缩过渡：两个圈的百分比变化时，彩色部分在圈内平滑变长 / 变短 */
+.ring-fill{
+  transition:stroke .3s ease,
+             stroke-dashoffset .55s cubic-bezier(.32,.72,0,1);
+}
 .ring .rv{
   position:absolute; inset:0; display:flex; flex-direction:column;
   align-items:center; justify-content:center;
@@ -606,15 +624,6 @@ html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
 .diet-ring-label{
   font-size:12.5px; color:var(--tx2); line-height:1.5;
   margin-top:12px; min-height:38px; font-variant-numeric:tabular-nums;
-}
-/* 切训练日 / 休息日时只动圈里的内容，卡片和页面其他位置保持不动 */
-.diet-ring-inner{
-  transition:opacity .22s ease, transform .28s cubic-bezier(.32,.72,0,1);
-}
-.diet-ring-inner.ring-swap{
-  opacity:0;
-  transform:scale(.94);
-  transition:none;
 }
 
 /* ---------------- 照片 ---------------- */
@@ -1555,11 +1564,10 @@ body.focusing{overflow:hidden}
   .view-inner,
   .seg-panel,
   .day-detail-wrap,
-  .diet-ring-inner{transition:none}
+  .ring-fill{transition:none}
   .view-inner.view-enter,
   .seg-panel.seg-enter,
-  .day-detail-wrap.detail-enter,
-  .diet-ring-inner.ring-swap{opacity:1; transform:none}
+  .day-detail-wrap.detail-enter{opacity:1; transform:none}
   #hdrTitle.hdr-swap,
   .rest-bar:not([hidden]),
   .lightbox:not([hidden]),
