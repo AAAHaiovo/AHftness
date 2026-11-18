@@ -607,6 +607,15 @@ html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
   font-size:12.5px; color:var(--tx2); line-height:1.5;
   margin-top:12px; min-height:38px; font-variant-numeric:tabular-nums;
 }
+/* 切训练日 / 休息日时只动圈里的内容，卡片和页面其他位置保持不动 */
+.diet-ring-inner{
+  transition:opacity .22s ease, transform .28s cubic-bezier(.32,.72,0,1);
+}
+.diet-ring-inner.ring-swap{
+  opacity:0;
+  transform:scale(.94);
+  transition:none;
+}
 
 /* ---------------- 照片 ---------------- */
 .ph-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 var(--gap)}
@@ -1545,10 +1554,12 @@ body.focusing{overflow:hidden}
 @media (prefers-reduced-motion: reduce){
   .view-inner,
   .seg-panel,
-  .day-detail-wrap{transition:none}
+  .day-detail-wrap,
+  .diet-ring-inner{transition:none}
   .view-inner.view-enter,
   .seg-panel.seg-enter,
-  .day-detail-wrap.detail-enter{opacity:1; transform:none}
+  .day-detail-wrap.detail-enter,
+  .diet-ring-inner.ring-swap{opacity:1; transform:none}
   #hdrTitle.hdr-swap,
   .rest-bar:not([hidden]),
   .lightbox:not([hidden]),

@@ -1511,17 +1511,16 @@ function viewDiet() {
     '<button data-act="nutMode" data-v="train" class="' + (mode === "train" ? "on" : "") + '">训练日 −' + num(st.deficitTrain) + "</button>" +
     '<button data-act="nutMode" data-v="rest" class="' + (mode === "rest" ? "on" : "") + '">休息日 −' + num(st.deficitRest) + "</button></div>";
 
-  h += '<div class="seg-panel" id="segPanel">';
   var pLeft = tp - np, kLeft = tk - nk;
   var pTxt = pLeft > 0 ? "还差 " + Math.round(pLeft) + " g" : "已达标";
   var kTxt = kLeft > 0 ? "还可吃 " + Math.round(kLeft) : "超出 " + Math.round(-kLeft) + " kcal";
   h += '<div class="diet-rings">';
-  h += '<div class="diet-ring-card" data-act="editP"><div class="ring">' +
-    svgRing(np / tp, "var(--blue)") + '<div class="rv"><b>' + Math.round(np) + '</b></div></div>' +
-    '<div class="diet-ring-label">/ ' + tp + ' g 蛋白 · ' + pTxt + '</div></div>';
-  h += '<div class="diet-ring-card" data-act="editK"><div class="ring">' +
-    svgRing(nk / tk, "var(--orange)") + '<div class="rv"><b>' + Math.round(nk) + '</b></div></div>' +
-    '<div class="diet-ring-label">/ ' + tk + ' kcal · ' + kTxt + '</div></div>';
+  h += '<div class="diet-ring-card" data-act="editP"><div class="diet-ring-inner" id="dietRingP">' +
+    '<div class="ring">' + svgRing(np / tp, "var(--blue)") + '<div class="rv"><b>' + Math.round(np) + '</b></div></div>' +
+    '<div class="diet-ring-label">/ ' + tp + ' g 蛋白 · ' + pTxt + '</div></div></div>';
+  h += '<div class="diet-ring-card" data-act="editK"><div class="diet-ring-inner" id="dietRingK">' +
+    '<div class="ring">' + svgRing(nk / tk, "var(--orange)") + '<div class="rv"><b>' + Math.round(nk) + '</b></div></div>' +
+    '<div class="diet-ring-label">/ ' + tk + ' kcal · ' + kTxt + '</div></div></div>';
   h += "</div>";
 
   /* 记一顿：点几样常吃的 → 自动算出这顿多少热量和蛋白 → 加进今天 */
@@ -1551,7 +1550,6 @@ function viewDiet() {
   h += dietPlanHTML();
 
   h += '<div class="foot">蛋白目标 ' + tp + "g 是按你 70kg 体重的 1.6–2.2 g/kg 区间取的中间值。<br>热量目标 = 每日总消耗 − 当天缺口，都在「设置」里改。</div>";
-  h += "</div>";
   return h;
 }
 
@@ -2009,17 +2007,17 @@ document.addEventListener("click", function (e) {
     case "nutMode": {
       var dn = ds(), mm = t.getAttribute("data-v");
       var curMode = (D.nutri[dn] && D.nutri[dn].mode) || dayMode(dn);
-      if (segSwitching || curMode === mm) break;
-      var nseg = t.closest(".seg");
-      if (nseg) Array.prototype.forEach.call(nseg.querySelectorAll("button"), function (b) { b.classList.toggle("on", b === t); });
-      switchSegPanel(function () {
-        /* 必须带 p/k 一起建：今天还没记过东西时，光写 mode 会留下一个
-           没有 p 和 k 的对象，饮食页读 n.p 得到 undefined，一路算成 NaN。 */
-        var no = D.nutri[dn] || { p: 0, k: 0 };
-        no.mode = mm; D.nutri[dn] = no;
-        save("nutri");
-        toast(mm === "train" ? "今天按训练日算" : "今天按休息日算");
-      });
+      if (curMode === mm) break;
+      /* 必须带 p/k 一起建：今天还没记过东西时，光写 mode 会留下一个
+         没有 p 和 k 的对象，饮食页读 n.p 得到 undefined，一路算成 NaN。 */
+      var no = D.nutri[dn] || { p: 0, k: 0 };
+      no.mode = mm; D.nutri[dn] = no;
+      save("nutri");
+      /* 整页不做过场，只让两个圈里的数字 / 目标淡入更新。 */
+      render();
+      animateInById("dietRingP", "ring-swap");
+      animateInById("dietRingK", "ring-swap");
+      toast(mm === "train" ? "今天按训练日算" : "今天按休息日算");
       break;
     }
     case "openDay": dayEditorSheet(t.getAttribute("data-day")); break;
