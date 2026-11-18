@@ -812,6 +812,8 @@ function refreshSheet() {
 }
 
 function openSheet(title, bodyHTML, onDone, doneLabel) {
+  var w = $("#sheetWrap");
+  var wasOpen = !w.hidden && w.classList.contains("on");
   $("#sheetTitle").textContent = title || "";
   var sb = $("#sheetBody");
   sb.onclick = null;          /* 清掉上一个弹层挂的处理函数，避免串台 */
@@ -819,10 +821,16 @@ function openSheet(title, bodyHTML, onDone, doneLabel) {
   sheetRefresh = null;        /* 同理，别让上一个弹层的重绘函数跟过来 */
   sb.scrollTop = 0;
   sb.innerHTML = bodyHTML;
+  /* 已经从底部弹着的时候再开一层（比如记一顿 → 编辑常吃），
+     内容轻轻换过去；从关闭状态打开则交给弹层自己的上滑动画。 */
+  if (wasOpen) {
+    sb.classList.remove("sheet-swap");
+    void sb.offsetWidth;
+    sb.classList.add("sheet-swap");
+  }
   $("#sheetDone").textContent = doneLabel || "完成";
   $("#sheetDone").style.visibility = onDone ? "visible" : "hidden";
   sheetOnDone = onDone;
-  var w = $("#sheetWrap");
   w.hidden = false;
   requestAnimationFrame(function () { w.classList.add("on"); });
   $("#sheetBody").scrollTop = 0;
@@ -866,12 +874,13 @@ function renderCurrentTab() {
   if (calPopEl) closeCalPicker(true);   /* 换页 / 换月时，年月下拉不该浮在上面 */
   U.urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
   U.urls = [];
-  var v = $("#view");
-  if (U.tab === "train") v.innerHTML = viewTrain();
-  else if (U.tab === "cal") v.innerHTML = viewCal();
-  else if (U.tab === "diet") v.innerHTML = viewDiet();
-  else if (U.tab === "body") v.innerHTML = viewBody();
-  else v.innerHTML = viewPlan();
+  var html;
+  if (U.tab === "train") html = viewTrain();
+  else if (U.tab === "cal") html = viewCal();
+  else if (U.tab === "diet") html = viewDiet();
+  else if (U.tab === "body") html = viewBody();
+  else html = viewPlan();
+  $("#view").innerHTML = '<div class="view-inner" id="viewInner">' + html + "</div>";
   setHeader();
   if (U.tab === "train") restoreFocus();
 }
@@ -879,6 +888,45 @@ function render() {
   if (!READY) return;
   buildTabs();
   renderCurrentTab();
+}
+
+/* 轻量入场动画：给元素加上起始类，下一帧去掉，走 CSS 过渡。 */
+function animateInById(id, cls) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) return;
+  el.classList.add(cls);
+  void el.offsetWidth;
+  requestAnimationFrame(function () { el.classList.remove(cls); });
+}
+
+function tabIndex(id) {
+  for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return i;
+  return 0;
+}
+
+/* 底部标签切换：新页面从标签顺序的方向轻轻滑入 + 淡入。
+   只动 transform / opacity，长列表也走合成层，不会卡。 */
+function switchTab(next) {
+  if (!next) return;
+  if (next === U.tab) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  var dir = tabIndex(next) > tabIndex(U.tab) ? 1 : -1;
+  U.tab = next;
+  try { history.replaceState(null, "", "#" + next); } catch (e) {}
+  window.scrollTo({ top: 0, behavior: "instant" });
+  render();
+  var inner = document.getElementById("viewInner");
+  if (inner) {
+    inner.style.setProperty("--tab-dir", dir);
+    inner.classList.add("view-enter");
+    void inner.offsetWidth;
+    requestAnimationFrame(function () { inner.classList.remove("view-enter"); });
+  }
+  animateInById("hdrTitle", "hdr-swap");
 }
 
 function setHeader() {
@@ -1345,7 +1393,7 @@ function calMonthHTML() {
   h += "</div></div>";
 
   /* 选中日详情 */
-  h += dayDetailHTML(U.selDate);
+  h += '<div class="day-detail-wrap" id="dayDetail">' + dayDetailHTML(U.selDate) + "</div>";
   return h;
 }
 
@@ -1463,6 +1511,7 @@ function viewDiet() {
     '<button data-act="nutMode" data-v="train" class="' + (mode === "train" ? "on" : "") + '">训练日 −' + num(st.deficitTrain) + "</button>" +
     '<button data-act="nutMode" data-v="rest" class="' + (mode === "rest" ? "on" : "") + '">休息日 −' + num(st.deficitRest) + "</button></div>";
 
+  h += '<div class="seg-panel" id="segPanel">';
   var pLeft = tp - np, kLeft = tk - nk;
   var pTxt = pLeft > 0 ? "还差 " + Math.round(pLeft) + " g" : "已达标";
   var kTxt = kLeft > 0 ? "还可吃 " + Math.round(kLeft) : "超出 " + Math.round(-kLeft) + " kcal";
@@ -1502,6 +1551,7 @@ function viewDiet() {
   h += dietPlanHTML();
 
   h += '<div class="foot">蛋白目标 ' + tp + "g 是按你 70kg 体重的 1.6–2.2 g/kg 区间取的中间值。<br>热量目标 = 每日总消耗 − 当天缺口，都在「设置」里改。</div>";
+  h += "</div>";
   return h;
 }
 
@@ -1724,6 +1774,7 @@ function viewPlan() {
   });
   h += '<button data-act="planSeg" data-v="rest" class="' + (U.planDay === "rest" ? "on" : "") + '">休息</button></div>';
 
+  h += '<div class="seg-panel" id="segPanel">';
   if (U.planDay === "rest") {
     h += '<div class="sec"><div class="card"><div class="card-pad" style="text-align:center;padding:30px 16px">' +
       '<div style="font-size:26px;font-weight:700;letter-spacing:-.5px">休息日</div>' +
@@ -1731,7 +1782,7 @@ function viewPlan() {
       '</div></div></div>';
   } else {
     var d = findDay(U.planDay);
-    if (!d) return h;
+    if (!d) return h + "</div>";
     var totalSets = d.ex.reduce(function (a, e) { return a + e.s; }, 0);
     var mins = Math.max(20, Math.round(totalSets * 3.2 / 5) * 5);
     h += '<div class="sec"><div class="sec-t">' + esc(d.tab) + ' <span class="r" style="color:var(--tx2)">' + d.ex.length + " 个动作 · " + totalSets + " 组</span></div>";
@@ -1763,6 +1814,7 @@ function viewPlan() {
       var dd = findDay(id);
       return dd ? esc(dd.short) : "?";
     }).join(" → ") + "</div>";
+  h += "</div>";
   return h;
 }
 
@@ -1860,10 +1912,7 @@ document.addEventListener("click", function (e) {
   var tabBtn = e.target.closest("#tabs button");
   if (tabBtn) {
     if (Focus.on) Focus.close(true);
-    U.tab = tabBtn.getAttribute("data-tab");
-    try { history.replaceState(null, "", "#" + U.tab); } catch (x) {}
-    window.scrollTo({ top: 0, behavior: "instant" });
-    render();
+    switchTab(tabBtn.getAttribute("data-tab"));
     return;
   }
   if (!t) return;
@@ -1927,11 +1976,22 @@ document.addEventListener("click", function (e) {
       switchSegPanel(function () { U.bodySeg = bv; });
       break;
     }
-    case "planSeg": U.planDay = t.getAttribute("data-v"); render(); break;
+    case "planSeg": {
+      var pv = t.getAttribute("data-v");
+      if (segSwitching || U.planDay === pv) break;
+      var pseg = t.closest(".seg");
+      if (pseg) Array.prototype.forEach.call(pseg.querySelectorAll("button"), function (b) { b.classList.toggle("on", b === t); });
+      switchSegPanel(function () { U.planDay = pv; });
+      break;
+    }
     case "calPrev": calShift(-1); break;
     case "calNext": calShift(1); break;
     case "calPickOpen": openCalPicker(); break;
-    case "pickDate": U.selDate = t.getAttribute("data-d"); render(); break;
+    case "pickDate":
+      U.selDate = t.getAttribute("data-d");
+      render();
+      animateInById("dayDetail", "detail-enter");
+      break;
     case "delLog": delLog(t.getAttribute("data-d")); break;
     case "addWeight": weightSheet(); break;
     case "addPhoto": addPhotoSheet(); break;
@@ -1946,15 +2006,22 @@ document.addEventListener("click", function (e) {
     case "mealView": mealViewSheet(t.getAttribute("data-id")); break;
     case "addP": addNutri("p", +t.getAttribute("data-v")); break;
     case "addK": addNutri("k", +t.getAttribute("data-v")); break;
-    case "nutMode":
+    case "nutMode": {
       var dn = ds(), mm = t.getAttribute("data-v");
-      /* 必须带 p/k 一起建：今天还没记过东西时，光写 mode 会留下一个
-         没有 p 和 k 的对象，饮食页读 n.p 得到 undefined，一路算成 NaN。 */
-      var no = D.nutri[dn] || { p: 0, k: 0 };
-      no.mode = mm; D.nutri[dn] = no;
-      save("nutri"); render();
-      toast(mm === "train" ? "今天按训练日算" : "今天按休息日算");
+      var curMode = (D.nutri[dn] && D.nutri[dn].mode) || dayMode(dn);
+      if (segSwitching || curMode === mm) break;
+      var nseg = t.closest(".seg");
+      if (nseg) Array.prototype.forEach.call(nseg.querySelectorAll("button"), function (b) { b.classList.toggle("on", b === t); });
+      switchSegPanel(function () {
+        /* 必须带 p/k 一起建：今天还没记过东西时，光写 mode 会留下一个
+           没有 p 和 k 的对象，饮食页读 n.p 得到 undefined，一路算成 NaN。 */
+        var no = D.nutri[dn] || { p: 0, k: 0 };
+        no.mode = mm; D.nutri[dn] = no;
+        save("nutri");
+        toast(mm === "train" ? "今天按训练日算" : "今天按休息日算");
+      });
       break;
+    }
     case "openDay": dayEditorSheet(t.getAttribute("data-day")); break;
     case "editWarm": warmEditorSheet(); break;
   }

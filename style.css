@@ -242,6 +242,22 @@ html[data-theme="dark"] .brand{background:rgba(235,235,245,.12); color:#fff; box
 
 /* ---------------- 主视图 ---------------- */
 #view{padding:8px 0 0}
+/* 标签页切换：新页面按标签顺序的方向轻轻滑入 + 淡入。
+   只动 opacity / transform，长列表也走合成层。 */
+.view-inner{
+  transition:opacity .26s cubic-bezier(.32,.72,0,1),
+             transform .3s cubic-bezier(.32,.72,0,1);
+}
+.view-inner.view-enter{
+  opacity:.35;
+  transform:translateX(calc(var(--tab-dir, 1) * 18px));
+  transition:none;
+}
+#hdrTitle.hdr-swap{animation:hdr-swap .3s cubic-bezier(.32,.72,0,1)}
+@keyframes hdr-swap{
+  from{opacity:.35; transform:translateY(4px)}
+  to{opacity:1; transform:none}
+}
 .pad{padding:0 var(--gap)}
 .sec{margin-bottom:24px}
 .sec-t{
@@ -486,8 +502,19 @@ html[data-theme="dark"] #tabs{background:rgba(28,28,30,.76); border-top-color:va
 }
 .cal-d.sel .cdot{display:none}
 .cal-d.workout{font-weight:600}
+.cal-d:active{transform:scale(.92)}
 /* 旧的 8px 部位文字标签已改用 4px 点，详情放到日期下方 */
 .cal-d .dtag{display:none}
+
+/* 点日期后，下方详情轻轻滑入 */
+.day-detail-wrap{
+  transition:opacity .2s ease, transform .24s cubic-bezier(.32,.72,0,1);
+}
+.day-detail-wrap.detail-enter{
+  opacity:.2;
+  transform:translateY(6px);
+  transition:none;
+}
 
 /* 点年月：标题下方浮出的小窗（下拉式），带缩放淡入 */
 .cal-pop-mask{position:fixed; inset:0; z-index:230}
@@ -622,8 +649,9 @@ html[data-theme="dark"] .heat-b.h2{background:rgba(10,132,255,.58)}
 .seg button{
   flex:1; min-width:0; height:34px; border-radius:9px; font-size:13.5px; font-weight:600;
   color:var(--tx2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  transition:background .18s, color .18s, box-shadow .18s;
+  transition:background .18s, color .18s, box-shadow .18s, transform .12s;
 }
+.seg button:active{transform:scale(.97)}
 .seg button.on{background:var(--card); color:var(--tx); box-shadow:0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04)}
 html[data-theme="dark"] .seg button.on{background:#48484A; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35)}
 
@@ -631,7 +659,6 @@ html[data-theme="dark"] .seg button.on{background:#48484A; color:#fff; box-shado
 .seg-panel{
   transition:opacity .16s ease, transform .22s cubic-bezier(.32,.72,0,1),
              height .26s cubic-bezier(.32,.72,0,1);
-  will-change:opacity, transform;
 }
 .seg-panel.seg-leave{opacity:0; transform:translateY(3px)}
 .seg-panel.seg-enter{opacity:0; transform:translateY(6px); transition:none}
@@ -674,6 +701,11 @@ html[data-theme="dark"] .sheet .btn.danger{background:#2C2C2E}
 .sheet-act{font-size:17px; color:var(--blue); padding:6px 2px}
 .sheet-act.strong{font-weight:700}
 .sheet-body{overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:20px}
+.sheet-body.sheet-swap{animation:sheet-swap .22s cubic-bezier(.32,.72,0,1)}
+@keyframes sheet-swap{
+  from{opacity:.35; transform:translateY(5px)}
+  to{opacity:1; transform:none}
+}
 
 /* iOS 风格长按菜单 */
 .ctx-wrap{
@@ -788,6 +820,11 @@ html[data-theme="dark"] .ctx-menu{background:rgba(44,44,46,.94); box-shadow:0 20
   -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
   box-shadow:0 8px 30px rgba(0,0,0,.28);
 }
+.rest-bar:not([hidden]){animation:rest-in .26s cubic-bezier(.32,.72,0,1)}
+@keyframes rest-in{
+  from{opacity:0; transform:translateY(12px)}
+  to{opacity:1; transform:none}
+}
 .rest-fill{
   position:absolute; left:0; top:0; bottom:0; width:0;
   background:rgba(216,255,71,.38);
@@ -827,6 +864,16 @@ html[data-theme="dark"] .rest-bar{box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 0 .5
 .lightbox{
   position:fixed; inset:0; z-index:400; background:#000;
   display:flex; align-items:center; justify-content:center;
+}
+.lightbox:not([hidden]){animation:lb-in .2s ease}
+@keyframes lb-in{
+  from{opacity:0}
+  to{opacity:1}
+}
+.lightbox img{animation:lb-zoom .24s cubic-bezier(.32,.72,0,1)}
+@keyframes lb-zoom{
+  from{opacity:.4; transform:scale(.97)}
+  to{opacity:1; transform:none}
 }
 .lightbox img{max-width:100%; max-height:100%; object-fit:contain}
 .lb-x{
@@ -1492,4 +1539,21 @@ body.focusing{overflow:hidden}
 .done-secondary{
   width:100%; height:50px; margin-top:10px; border-radius:14px;
   background:#2C2C2E; color:#fff; font-size:14px; font-weight:600;
+}
+
+/* 系统开启「减少动态效果」时，所有新增过渡都退化成直接切换 */
+@media (prefers-reduced-motion: reduce){
+  .view-inner,
+  .seg-panel,
+  .day-detail-wrap{transition:none}
+  .view-inner.view-enter,
+  .seg-panel.seg-enter,
+  .day-detail-wrap.detail-enter{opacity:1; transform:none}
+  #hdrTitle.hdr-swap,
+  .rest-bar:not([hidden]),
+  .lightbox:not([hidden]),
+  .lightbox img,
+  .sheet-body.sheet-swap{animation:none}
+  .seg button:active,
+  .cal-d:active{transform:none}
 }
